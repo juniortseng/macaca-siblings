@@ -124,9 +124,7 @@
       for (var m = 0; m < sibs.length; m++) if (sibs[m].swatch || sibs[m].cover) row.appendChild(pdpItem(data.mid, sibs[m], sibs[m].id === pid));
       box.parentNode.insertBefore(row, box.nextSibling);
     }
-    // 宏鈞 10/15 定案(GTM 回到版本 42):「➤ 更多顏色選擇」連結隱藏,由色票取代
-    var links = document.querySelectorAll('a[href*="/products?query="]');
-    for (var n = 0; n < links.length; n++) if (links[n].textContent.indexOf('更多顏色') >= 0) links[n].style.display = 'none';
+    // 宏鈞 10/15 最終(GTM 版本 43):「➤ 更多顏色選擇」連結保留,不隱藏
   }
 
   function injectCSS() {
