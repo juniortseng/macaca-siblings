@@ -1,7 +1,7 @@
-/* MACACA 同款不同色色票 v2(2026-10-15)
+/* MACACA 同款不同色色票 v3(2026-10-16)
  * 作用:商品分類頁/列表的卡片、商品頁的「顏色」列,補上同款其他顏色的色票;點了跳到那個顏色的商品頁。
  * 資料:siblings.json(每晚由 build_style_siblings.py 產生,放在 CFG.url;enabled=false 為總開關)。
- * 色票圖:有「規格選項圖片」用它(新季);沒有的用商品封面 60×60 縮圖(舊季,宏鈞 10/15 選 a)。
+ * 色票:①有「規格選項圖片」用它(新季) ②沒有但 colour_codes.json 有核准色碼 → 純色圓點(hex) ③都沒有 → 商品封面 60×60 縮圖。
  * 版型差異:
  *   新季卡片已有 product-list-variation-selector → 接在後面;舊季卡片沒有 → 自己在價格下方建一列(同樣 class)。
  *   新季商品頁有 .Variation-container(圖片選項)→ 接在後面;舊季是文字標籤 → 在 .select-box 後面自己建一列。
@@ -18,9 +18,11 @@
   if (window.__mcSiblingsLoaded) return;
   window.__mcSiblingsLoaded = true;
 
-  function thumb(mid, s) { var m = s.swatch || s.cover; return m ? 'https://shoplineimg.com/' + mid + '/' + m + '/60x60.webp?source_format=jpg' : ''; }
+  function thumb(mid, s) { var m = s.swatch || (!s.hex && s.cover); return m ? 'https://shoplineimg.com/' + mid + '/' + m + '/60x60.webp?source_format=jpg' : ''; }
   function cover(mid, s) { return s.cover ? 'https://shoplineimg.com/' + mid + '/' + s.cover + '/750x.webp?source_format=jpg' : ''; }
   function esc(s) { return String(s || '').replace(/"/g, '&quot;'); }
+  function hasThumb(s) { return !!(s.swatch || s.hex || s.cover); }
+  function useDot(s) { return !s.swatch && !!s.hex; }   // 沒有選項圖片、但有核准色碼 → 純色圓點
 
   /* ---------- 列表卡 ---------- */
   function plpItem(mid, s, isSelf) {
@@ -28,7 +30,9 @@
     a.className = 'product-list-variant-selector-item mc-sib-item' + (isSelf ? ' selected-variation mc-sib-self' : '') + (s.soldout ? ' mc-sib-soldout' : '');
     a.href = isSelf ? 'javascript:void(0);' : s.url;
     a.title = s.color + (s.soldout ? '(售完)' : '');
-    a.innerHTML = '<div class="product-list-variant-selector-image"><img loading="lazy" alt="' + esc(s.color) + '" src="' + thumb(mid, s) + '"></div>';
+    a.innerHTML = useDot(s)
+      ? '<div class="product-list-variant-selector-image"><div class="mc-sib-dot" title="' + esc(s.color) + '" style="background:' + esc(s.hex) + '"></div></div>'
+      : '<div class="product-list-variant-selector-image"><img loading="lazy" alt="' + esc(s.color) + '" src="' + thumb(mid, s) + '"></div>';
     return a;
   }
   function decoratePLP(data) {
@@ -68,7 +72,7 @@
     for (var j = 0; j < sibs.length; j++) {
       var s = sibs[j];
       if (s.id === pid && !includeSelf) continue;
-      if (!s.swatch && !s.cover) continue;
+      if (!hasThumb(s)) continue;
       var a = plpItem(data.mid, s, s.id === pid);
       if (s.id !== pid && mainImg && s.cover) bindHover(a, mainImg, cover(data.mid, s));
       scroll.appendChild(a);
@@ -99,7 +103,8 @@
     a.href = isSelf ? 'javascript:void(0);' : s.url;
     a.title = s.color + (s.soldout ? '(售完)' : '');
     a.setAttribute('data-original-title', s.color);
-    a.innerHTML = '<div class="Variation-border' + (isSelf ? ' selected' : '') + '"></div><div class="Variation-thumb" style="background-image:url(\'' + thumb(mid, s) + '\')"></div>';
+    var bg = useDot(s) ? 'background-color:' + esc(s.hex) : 'background-image:url(\'' + thumb(mid, s) + '\')';
+    a.innerHTML = '<div class="Variation-border' + (isSelf ? ' selected' : '') + '"></div><div class="Variation-thumb' + (useDot(s) ? ' mc-sib-dot' : '') + '" style="' + bg + '"></div>';
     return a;
   }
   function decoratePDP(data) {
@@ -113,7 +118,7 @@
     if (container && root.querySelector('.Variation-wrap')) {
       // 新季:接在原生色票後面
       root.setAttribute(CFG.mark, '1');
-      for (var j = 0; j < sibs.length; j++) if (sibs[j].id !== pid && (sibs[j].swatch || sibs[j].cover)) container.appendChild(pdpItem(data.mid, sibs[j], false));
+      for (var j = 0; j < sibs.length; j++) if (sibs[j].id !== pid && hasThumb(sibs[j])) container.appendChild(pdpItem(data.mid, sibs[j], false));
     } else {
       // 舊季:文字標籤,自己在下面建一列(含自己這色,打勾)
       var box = root.querySelector('.select-box');
@@ -121,7 +126,7 @@
       root.setAttribute(CFG.mark, '1');
       var row = document.createElement('div');
       row.className = 'Variation-container mc-sib-row';
-      for (var m = 0; m < sibs.length; m++) if (sibs[m].swatch || sibs[m].cover) row.appendChild(pdpItem(data.mid, sibs[m], sibs[m].id === pid));
+      for (var m = 0; m < sibs.length; m++) if (hasThumb(sibs[m])) row.appendChild(pdpItem(data.mid, sibs[m], sibs[m].id === pid));
       box.parentNode.insertBefore(row, box.nextSibling);
     }
     // 宏鈞 10/15 最終(GTM 版本 43):「➤ 更多顏色選擇」連結保留,不隱藏
@@ -129,6 +134,9 @@
 
   function injectCSS() {
     var css = '.mc-sib-item{display:inline-block;cursor:pointer}' +
+      // 純色圓點:列表卡沿用選項圖片的容器尺寸;商品頁沿用 .Variation-thumb 的尺寸;都加一圈淡邊讓淺色也看得到
+      '.product-list-variant-selector-image .mc-sib-dot{display:block;width:100%;height:100%;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}' +
+      '.Variation-thumb.mc-sib-dot{box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}' +
       '.mc-sib-self{cursor:default}' +
       '.mc-sib-row.product-list-variant-selector-container{margin-top:6px}' +
       '.mc-sib-row .product-list-variant-selector-item{display:inline-block}' +
