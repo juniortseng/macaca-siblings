@@ -1,16 +1,14 @@
-/* MACACA 會員購物金提示 v0.2(2026-10-17 設計稿,未上線)— 不用任何 Open API
- * 宏鈞 10/17:「沒有 open api,要用沒有 api 的程式版本」→ 預設 USE_STOREFRONT_API=false:只讀頁面上現成的
- * window.mainConfig.currentUser.credit_balance;沒有這個欄位就什麼都不顯示。
- * (USE_STOREFRONT_API=true 時才會打官網前台自己的 /api/user_credits——那是顧客瀏覽器在會員中心本來就會打的內部網址,
- *  靠登入 cookie 認人,不是 SHOPLINE Open API、不用申請金鑰;先留著,宏鈞同意才開。)
- * 需求(宏鈞):有登入、而且有購物金的顧客,頁面上方顯示購物金符號;點了顯示金額。
- * 資料:①window.mainConfig.currentUser(未登入=null)②購物金餘額:先看 currentUser.credit_balance,
- *       沒有就打官網自己的 /api/user_credits?limit=1&page=1(同網域、帶 cookie,會員中心就是打這支),取第一筆的 credit_balance。
- * 位置:桌機 nav.header--desktop、手機 nav.header--mobile 的「會員」圖示(a[href^="/users"] 或 icon-person)旁邊,
- *       複製同一個 li.List-item 結構,所以顏色、間距跟原生一樣。
- * 安全:找不到 header/會員圖示就不動;API 失敗就不顯示;餘額 10 分鐘內用 sessionStorage 快取,不每頁打 API。
- * 關閉:GTM 暫停標籤;個人測試 localStorage.setItem('mcCreditOff','1')。
- * 測試:window.__mcCreditTest = { balance: 350, userId: 'test' } 可在未登入時模擬。
+/* MACACA 會員購物金提示 v0.3(2026-10-17 三版設計稿,未上線)— 不用任何 Open API
+ * 需求:有登入、而且有購物金的顧客,header 顯示購物金符號;點了看得到金額。
+ * 資料:只讀頁面上現成的 window.mainConfig.currentUser.credit_balance(10/17 登入實測有此欄位);沒有就不顯示、不打任何網址。
+ * 視覺:照 SHOPLINE 原生購物袋徽章的規格(10/17 量測):背景 #eaaa96、白字 11px、高 18px、圓角 10px、絕對定位 top -6px;
+ *       圖示用實心剪影(跟原生 person/bag 一樣),22px;字體/顏色繼承 nav(#333)。
+ * 三個版本(window.__mcCreditVariant = 'A' | 'B' | 'C',正式版定稿後寫死):
+ *   A 同購物袋徽章:實心錢包 + 購物袋同款徽章(寫 $);點了出現一行式小氣泡「購物金 NT$350 ›」,整顆可點去明細。
+ *   B 金額標籤:實心硬幣 + 旁邊直接掛金額小標籤(徽章同色);沒有氣泡,點了直接去明細。
+ *   C 主題色圖示:禮券圖示本身改成主題色(有購物金才出現),沒有徽章;點了出現小卡(金額 + 主題色按鈕「使用購物金」)。
+ * 安全:找不到 header/會員圖示就不動;localStorage.mcCreditOff=1 個人關閉;GTM 暫停=全站關閉。
+ * 測試:window.__mcCreditTest = { balance: 350 } 可在未登入時模擬。
  */
 (function () {
   'use strict';
@@ -19,89 +17,98 @@
   if (window.__mcCreditLoaded) return;
   window.__mcCreditLoaded = true;
 
-  var USE_STOREFRONT_API = false;                      // 宏鈞 10/17:預設不打任何網址
+  var VARIANT = (window.__mcCreditVariant || 'A').toUpperCase();
   var TEST = window.__mcCreditTest || null;
-  var user = TEST ? { _id: TEST.userId || 'test', credit_balance: TEST.balance } : (window.mainConfig && window.mainConfig.currentUser);
-  if (!user || !user._id) return;                       // 沒登入 → 什麼都不做
+  var user = TEST ? { _id: 'test', credit_balance: TEST.balance } : (window.mainConfig && window.mainConfig.currentUser);
+  if (!user || !user._id) return;                                   // 沒登入 → 什麼都不做
+  var balance = typeof user.credit_balance === 'number' ? user.credit_balance : null;
+  if (!(balance > 0)) return;                                       // 沒有購物金(或欄位不存在)→ 不顯示
 
-  var CACHE_KEY = 'mcCredit:' + user._id, CACHE_MS = 10 * 60 * 1000;
-
+  var PINK = '#eaaa96', ACCENT = '#ce715e', LINK = '/user_credits';
   function fmt(n) { return 'NT$' + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-  function findBalance(obj, depth) {                    // 回應結構不確定,遞迴找第一個 credit_balance
-    if (!obj || typeof obj !== 'object' || depth > 4) return null;
-    if (typeof obj.credit_balance === 'number') return obj.credit_balance;
-    var keys = Object.keys(obj);
-    for (var i = 0; i < keys.length; i++) { var v = findBalance(obj[keys[i]], depth + 1); if (v !== null) return v; }
-    return null;
-  }
-  function getBalance(cb) {
-    if (TEST) return cb(TEST.balance);
-    if (typeof user.credit_balance === 'number') return cb(user.credit_balance);
-    if (!USE_STOREFRONT_API) return;                     // 沒有欄位、又不准打網址 → 不顯示
-    try {
-      var c = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
-      if (c && Date.now() - c.t < CACHE_MS) return cb(c.v);
-    } catch (e) {}
-    fetch('/api/user_credits?limit=1&page=1', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        var v = findBalance(j, 0);
-        if (v === null) return;
-        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), v: v })); } catch (e) {}
-        cb(v);
-      }).catch(function () {});
-  }
 
-  var ICON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18"/><path d="M8 7V5.5a2.5 2.5 0 0 1 5 0V7"/><path d="M11 7V5.5a2.5 2.5 0 0 1 5 0V7"/></svg>';
+  // 實心剪影圖示(22×22,跟原生 icon-person / icon-nav-cart 同語彙)
+  var ICONS = {
+    wallet: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4 4.5A1.5 1.5 0 0 1 5.5 3h12a1 1 0 1 1 0 2H6v1h14a2 2 0 0 1 2 2v3h-5.5a3.5 3.5 0 0 0 0 7H22v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15.5zM16.5 12.5a2 2 0 1 0 0 4h5.5v-4h-5.5z"/></svg>',
+    coin: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm.9 4h-1.8v1.3c-1.7.3-2.8 1.4-2.8 2.9 0 1.6 1 2.4 3.1 3 1.6.4 2.1.8 2.1 1.5 0 .7-.6 1.2-1.6 1.2-1.1 0-1.8-.5-1.9-1.5H8.1c.1 1.8 1.3 2.9 3 3.2V19h1.8v-1.4c1.8-.3 2.9-1.4 2.9-3 0-1.7-1-2.5-3.2-3.1-1.5-.4-2-.8-2-1.4 0-.6.5-1.1 1.4-1.1 1 0 1.6.5 1.7 1.4h1.9c-.1-1.7-1.2-2.8-2.7-3.1V6z"/></svg>',
+    ticket: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2.2a2.8 2.8 0 0 0 0 5.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2.2a2.8 2.8 0 0 0 0-5.6V7zm13 1h-1.6v8H15V8zm-5.4 0H8v8h1.6V8z"/></svg>'
+  };
 
   function injectCSS() {
-    var css = '.mc-credit{position:relative}' +
-      '.mc-credit .mc-credit-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;background:none;border:0;padding:0;line-height:1}' +
-      '.mc-credit .mc-credit-dot{position:absolute;top:-3px;right:-5px;min-width:8px;height:8px;border-radius:50%;background:#d9534f}' +
-      '.mc-credit-pop{position:absolute;top:calc(100% + 12px);right:-8px;z-index:1200;background:#fff;color:#333;border:1px solid #e5e5e5;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.12);padding:14px 16px;min-width:200px;font-size:14px;line-height:1.5;text-align:left;display:none}' +
+    var css =
+      '.mc-credit{position:relative}' +
+      '.mc-credit .mc-credit-btn{position:relative;display:inline-flex;align-items:center;cursor:pointer;background:none;border:0;padding:0;line-height:1;color:inherit;text-decoration:none}' +
+      // 徽章:照原生 .Cart-count 規格
+      '.mc-credit .mc-credit-badge{position:absolute;top:-6px;right:-10px;min-width:18px;height:18px;line-height:18px;padding:0 5px;border-radius:10px;background:' + PINK + ';color:#fff;font-size:11px;font-weight:400;text-align:center;box-sizing:border-box;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}' +
+      // B 金額標籤:徽章同色、接在圖示右邊
+      '.mc-credit .mc-credit-chip{display:inline-block;margin-left:5px;height:18px;line-height:18px;padding:0 7px;border-radius:10px;background:' + PINK + ';color:#fff;font-size:11px;white-space:nowrap;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.02em}' +
+      // C 主題色圖示
+      '.mc-credit.mc-credit-c .mc-credit-btn{color:' + ACCENT + '}' +
+      // 氣泡共用:白底、細框、貼合內容寬度
+      '.mc-credit-pop{position:absolute;top:calc(100% + 10px);z-index:1200;background:#fff;color:#333;border:1px solid #e3e3e3;box-shadow:0 4px 14px rgba(0,0,0,.10);display:none;white-space:nowrap;font-family:"Helvetica Neue",Helvetica,"Microsoft JhengHei",sans-serif;text-align:left}' +
       '.mc-credit-pop.open{display:block}' +
-      '.mc-credit-pop:before{content:"";position:absolute;top:-6px;right:16px;width:10px;height:10px;background:#fff;border-left:1px solid #e5e5e5;border-top:1px solid #e5e5e5;transform:rotate(45deg)}' +
-      '.mc-credit-pop .mc-credit-label{color:#888;font-size:12px;letter-spacing:.05em}' +
-      '.mc-credit-pop .mc-credit-amt{font-size:22px;font-weight:600;margin:2px 0 8px;letter-spacing:.02em}' +
-      '.mc-credit-pop a.mc-credit-link{display:inline-block;color:#333;text-decoration:underline;font-size:13px}' +
-      '@media (max-width:767px){.mc-credit-pop{position:fixed;top:auto;right:12px;left:12px;margin-top:8px;min-width:0}.mc-credit-pop:before{display:none}}';
+      '.mc-credit-pop:before{content:"";position:absolute;top:-5px;width:8px;height:8px;background:#fff;border-left:1px solid #e3e3e3;border-top:1px solid #e3e3e3;transform:rotate(45deg)}' +
+      '.mc-credit-pop.at-left{left:-4px}.mc-credit-pop.at-left:before{left:11px}' +
+      '.mc-credit-pop.at-right{right:-4px}.mc-credit-pop.at-right:before{right:11px}' +
+      // A 一行式小氣泡(整顆是連結)
+      '.mc-credit-pop.pop-a{border-radius:20px;padding:0}' +
+      '.mc-credit-pop.pop-a a{display:block;padding:7px 12px;font-size:13px;color:#333;text-decoration:none;line-height:1.3}' +
+      '.mc-credit-pop.pop-a a b{font-weight:600;margin:0 2px 0 6px}' +
+      '.mc-credit-pop.pop-a a span{color:' + ACCENT + ';margin-left:2px}' +
+      // C 小卡(金額 + 主題色按鈕,寬度貼合)
+      '.mc-credit-pop.pop-c{border-radius:6px;padding:10px 14px;text-align:center}' +
+      '.mc-credit-pop.pop-c .l{font-size:11px;color:#888;letter-spacing:.05em}' +
+      '.mc-credit-pop.pop-c .v{font-size:18px;font-weight:600;line-height:1.3;margin:2px 0 8px}' +
+      '.mc-credit-pop.pop-c a{display:block;background:' + PINK + ';color:#fff;font-size:12px;padding:6px 12px;border-radius:3px;text-decoration:none;line-height:1.3}';
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   }
 
-  function build(nav, balance) {
+  function build(nav) {
     if (!nav || nav.querySelector('.mc-credit')) return false;
     var userA = nav.querySelector('a[href^="/users"], a .icon-person, svg.icon-person');
     if (!userA) return false;
     var li = userA.closest('li'); if (!li) return false;
     var el = document.createElement('li');
-    el.className = (li.className || 'List-item') + ' mc-credit';
+    el.className = (li.className || 'List-item') + ' mc-credit mc-credit-' + VARIANT.toLowerCase();
     el.style.position = 'relative';
-    el.innerHTML = '<button type="button" class="NavigationBar-actionMenu-button nav-color mc-credit-btn" aria-label="購物金" title="購物金">' + ICON + '<span class="mc-credit-dot"></span></button>' +
-      '<div class="mc-credit-pop" role="dialog" aria-label="購物金"><div class="mc-credit-label">可用購物金</div><div class="mc-credit-amt">' + fmt(balance) + '</div>' +
-      '<a class="mc-credit-link" href="/user_credits">查看明細與到期日 ›</a></div>';   // 10/17 登入實測:購物金頁是 /user_credits(/users/{id}/user_credits 會被導回首頁)
+    var pop = null;
+    if (VARIANT === 'B') {
+      el.innerHTML = '<a class="NavigationBar-actionMenu-button nav-color mc-credit-btn" href="' + LINK + '" aria-label="購物金 ' + fmt(balance) + '">' + ICONS.coin + '<span class="mc-credit-chip">' + fmt(balance) + '</span></a>';
+    } else if (VARIANT === 'C') {
+      el.innerHTML = '<button type="button" class="NavigationBar-actionMenu-button nav-color mc-credit-btn" aria-label="購物金">' + ICONS.ticket + '</button>' +
+        '<div class="mc-credit-pop pop-c" role="dialog"><div class="l">可用購物金</div><div class="v">' + fmt(balance) + '</div><a href="' + LINK + '">使用購物金 ›</a></div>';
+    } else {
+      el.innerHTML = '<button type="button" class="NavigationBar-actionMenu-button nav-color mc-credit-btn" aria-label="購物金">' + ICONS.wallet + '<span class="mc-credit-badge">$</span></button>' +
+        '<div class="mc-credit-pop pop-a" role="dialog"><a href="' + LINK + '">購物金<b>' + fmt(balance) + '</b><span>›</span></a></div>';
+    }
     li.parentNode.insertBefore(el, li.nextSibling);
-    var btn = el.querySelector('.mc-credit-btn'), pop = el.querySelector('.mc-credit-pop');
-    btn.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); pop.classList.toggle('open'); });
-    document.addEventListener('click', function (ev) { if (!el.contains(ev.target)) pop.classList.remove('open'); });
+    pop = el.querySelector('.mc-credit-pop');
+    if (pop) {
+      var btn = el.querySelector('.mc-credit-btn');
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        var r = el.getBoundingClientRect();                        // 圖示在畫面左半邊就往右展開,右半邊就往左展開
+        pop.classList.remove('at-left', 'at-right');
+        pop.classList.add(r.left < window.innerWidth / 2 ? 'at-left' : 'at-right');
+        pop.classList.toggle('open');
+      });
+      document.addEventListener('click', function (ev) { if (!el.contains(ev.target)) pop.classList.remove('open'); });
+    }
     return true;
   }
 
-  getBalance(function (balance) {
-    if (!(balance > 0)) return;                          // 沒有購物金 → 不顯示
-    injectCSS();
-    var navs = document.querySelectorAll('nav.header--desktop, nav.header--mobile');
-    var done = 0;
-    for (var i = 0; i < navs.length; i++) if (build(navs[i], balance)) done++;
-    if (!done) {                                         // header 晚一點才渲染的保險
-      var mo = new MutationObserver(function () {
-        var n2 = document.querySelectorAll('nav.header--desktop, nav.header--mobile'); var ok = 0;
-        for (var j = 0; j < n2.length; j++) if (build(n2[j], balance)) ok++;
-        if (ok) mo.disconnect();
-      });
-      mo.observe(document.body, { childList: true, subtree: true });
-      setTimeout(function () { mo.disconnect(); }, 8000);
-    }
-    try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_credit_badge_shown', credit_balance: balance }); } catch (e) {}
-  });
+  injectCSS();
+  var navs = document.querySelectorAll('nav.header--desktop, nav.header--mobile');
+  var done = 0;
+  for (var i = 0; i < navs.length; i++) if (build(navs[i])) done++;
+  if (!done) {
+    var mo = new MutationObserver(function () {
+      var n2 = document.querySelectorAll('nav.header--desktop, nav.header--mobile'); var ok = 0;
+      for (var j = 0; j < n2.length; j++) if (build(n2[j])) ok++;
+      if (ok) mo.disconnect();
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    setTimeout(function () { mo.disconnect(); }, 8000);
+  }
+  try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_credit_badge_shown', credit_balance: balance, variant: VARIANT }); } catch (e) {}
 })();
