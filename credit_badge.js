@@ -5,7 +5,7 @@
  *       圖示用實心剪影(跟原生 person/bag 一樣),22px;字體/顏色繼承 nav(#333)。
  * 三個版本(window.__mcCreditVariant = 'A' | 'B' | 'C',正式版定稿後寫死):
  *   A 同購物袋徽章:實心錢包 + 購物袋同款徽章(寫 $);點了出現一行式小氣泡「購物金 NT$350 ›」,整顆可點去明細。
- *   B 金額標籤:實心硬幣 + 旁邊直接掛金額小標籤(徽章同色);沒有氣泡,點了直接去明細。
+ *   B 金額標籤:實心硬幣 + 旁邊直接掛金額小標籤(徽章同色);手機版空間不夠,改成徽章直接寫金額數字;沒有氣泡,點了直接去明細。
  *   C 主題色圖示:禮券圖示本身改成主題色(有購物金才出現),沒有徽章;點了出現小卡(金額 + 主題色按鈕「使用購物金」)。
  * 安全:找不到 header/會員圖示就不動;localStorage.mcCreditOff=1 個人關閉;GTM 暫停=全站關閉。
  * 測試:window.__mcCreditTest = { balance: 350 } 可在未登入時模擬。
@@ -75,7 +75,7 @@
     el.style.position = 'relative';
     var pop = null;
     if (VARIANT === 'B') {
-      el.innerHTML = '<a class="NavigationBar-actionMenu-button nav-color mc-credit-btn" href="' + LINK + '" aria-label="購物金 ' + fmt(balance) + '">' + ICONS.coin + '<span class="mc-credit-chip">' + fmt(balance) + '</span><span class="mc-credit-badge mc-credit-badge-m">$</span></a>';
+      el.innerHTML = '<a class="NavigationBar-actionMenu-button nav-color mc-credit-btn" href="' + LINK + '" aria-label="購物金 ' + fmt(balance) + '">' + ICONS.coin + '<span class="mc-credit-chip">' + fmt(balance) + '</span><span class="mc-credit-badge mc-credit-badge-m">' + (balance >= 10000 ? '9999+' : Math.round(balance)) + '</span></a>';   // 手機版:徽章直接寫金額數字(跟購物袋的數字徽章同一種語言)
     } else if (VARIANT === 'C') {
       el.innerHTML = '<button type="button" class="NavigationBar-actionMenu-button nav-color mc-credit-btn" aria-label="購物金">' + ICONS.ticket + '</button>' +
         '<div class="mc-credit-pop pop-c" role="dialog"><div class="l">可用購物金</div><div class="v">' + fmt(balance) + '</div><a href="' + LINK + '">使用購物金 ›</a></div>';
