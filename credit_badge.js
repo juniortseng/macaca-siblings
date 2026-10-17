@@ -7,6 +7,7 @@
  *   A 同購物袋徽章:實心錢包 + 購物袋同款徽章(寫 $);點了出現一行式小氣泡「購物金 NT$350 ›」,整顆可點去明細。
  *   B 金額標籤:實心硬幣 + 旁邊直接掛金額小標籤(徽章同色);手機版空間不夠,改成徽章直接寫金額數字;沒有氣泡,點了直接去明細。
  *   C 主題色圖示:禮券圖示本身改成主題色(有購物金才出現),沒有徽章;點了出現小卡(金額 + 主題色按鈕「使用購物金」)。
+ *   D(宏鈞 10/17 定稿)= B 的硬幣圖示 + 右上角粉色小點(有購物金才出現)+ 點下去是 A 的一行小氣泡,整顆氣泡是連結。
  * 安全:找不到 header/會員圖示就不動;localStorage.mcCreditOff=1 個人關閉;GTM 暫停=全站關閉。
  * 測試:window.__mcCreditTest = { balance: 350 } 可在未登入時模擬。
  */
@@ -17,7 +18,7 @@
   if (window.__mcCreditLoaded) return;
   window.__mcCreditLoaded = true;
 
-  var VARIANT = (window.__mcCreditVariant || 'A').toUpperCase();
+  var VARIANT = (window.__mcCreditVariant || 'D').toUpperCase();   // 宏鈞 10/17 定稿:D
   var TEST = window.__mcCreditTest || null;
   var user = TEST ? { _id: 'test', credit_balance: TEST.balance } : (window.mainConfig && window.mainConfig.currentUser);
   if (!user || !user._id) return;                                   // 沒登入 → 什麼都不做
@@ -40,6 +41,8 @@
       '.mc-credit .mc-credit-btn{position:relative;display:inline-flex;align-items:center;cursor:pointer;background:none;border:0;padding:0;line-height:1;color:inherit;text-decoration:none}' +
       // 徽章:照原生 .Cart-count 規格
       '.mc-credit .mc-credit-badge{position:absolute;top:-6px;right:-10px;min-width:18px;height:18px;line-height:18px;padding:0 5px;border-radius:10px;background:' + PINK + ';color:#fff;font-size:11px;font-weight:400;text-align:center;box-sizing:border-box;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}' +
+      // D 小點:徽章同色,8px,放在圖示右上角
+      '.mc-credit .mc-credit-dot{position:absolute;top:-2px;right:-4px;width:8px;height:8px;border-radius:50%;background:' + PINK + ';box-shadow:0 0 0 2px rgba(255,255,255,.9)}' +
       // B 金額標籤:徽章同色、接在圖示右邊
       '.mc-credit .mc-credit-chip{display:inline-block;margin-left:5px;height:18px;line-height:18px;padding:0 7px;border-radius:10px;background:' + PINK + ';color:#fff;font-size:11px;white-space:nowrap;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.02em}' +
       '.mc-credit .mc-credit-badge-m{display:none}' +
@@ -74,7 +77,10 @@
     el.className = (li.className || 'List-item') + ' mc-credit mc-credit-' + VARIANT.toLowerCase();
     el.style.position = 'relative';
     var pop = null;
-    if (VARIANT === 'B') {
+    if (VARIANT === 'D') {
+      el.innerHTML = '<button type="button" class="NavigationBar-actionMenu-button nav-color mc-credit-btn" aria-label="購物金 ' + fmt(balance) + '">' + ICONS.coin + '<span class="mc-credit-dot"></span></button>' +
+        '<div class="mc-credit-pop pop-a" role="dialog"><a href="' + LINK + '">購物金<b>' + fmt(balance) + '</b><span>›</span></a></div>';
+    } else if (VARIANT === 'B') {
       el.innerHTML = '<a class="NavigationBar-actionMenu-button nav-color mc-credit-btn" href="' + LINK + '" aria-label="購物金 ' + fmt(balance) + '">' + ICONS.coin + '<span class="mc-credit-chip">' + fmt(balance) + '</span><span class="mc-credit-badge mc-credit-badge-m">' + (balance >= 10000 ? '9999+' : Math.round(balance)) + '</span></a>';   // 手機版:徽章直接寫金額數字(跟購物袋的數字徽章同一種語言)
     } else if (VARIANT === 'C') {
       el.innerHTML = '<button type="button" class="NavigationBar-actionMenu-button nav-color mc-credit-btn" aria-label="購物金" style="color:' + ACCENT + '">' + ICONS.ticket.replace('fill="currentColor"', 'style="fill:' + ACCENT + ' !important;color:' + ACCENT + ' !important"').replace('<path ', '<path style="fill:' + ACCENT + ' !important" ') + '</button>' +   // 原生 .nav-color 會蓋掉 class 的顏色,直接寫在 svg 上
