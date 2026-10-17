@@ -1,4 +1,4 @@
-/* MACACA 圖中穿搭 v0.6(2026-10-18 示意,未發布;三語;桌機大圖直式、手機方型小卡;標題只留「圖中穿搭」;位置可選,預設 origin)
+/* MACACA 圖中穿搭 v0.7(2026-10-18 示意,未發布;三語;桌機正方形用本頁照片、手機方型小卡;標題只留「圖中穿搭」;位置由 pairs.json)
  * 作用:商品頁在「加入購物車」按鈕下方,顯示照片裡搭配的另一件(上身頁顯示「圖中下身」、下身頁顯示「圖中上身」),點了跳到那件的商品頁。
  * 資料:pairs.json(GitHub Pages;示意版只有 非夏哲學美背bratop ↔ 非夏哲學瑜伽寬褲 同色 8 組;正式版每晚由共用照片比對+人工核對表產生)。
  * 安全:找不到預期元素就不動;JSON enabled=false 或 localStorage mcOutfitOff=1 即關閉;GTM 暫停=全站關閉。
@@ -21,8 +21,9 @@
       '.mc-outfit-head{font-size:12px;letter-spacing:.14em;color:#888;margin:0 0 12px}' +
       '.mc-outfit-card{display:block;text-decoration:none;color:#222}' +
       '.mc-outfit-card:hover{text-decoration:none;color:#222}' +
-      '.mc-outfit-img{display:block;width:100%;background:#f3f3f3;overflow:hidden}' +
-      '.mc-outfit-img img{width:100%;height:auto;display:block}' +                                   // 原比例,不裁
+      '.mc-outfit-img{display:block;width:100%;aspect-ratio:1/1;background:#f3f3f3;overflow:hidden}' +   // 桌機正方形
+      '.mc-outfit-img picture{display:block;width:100%;height:100%}' +
+      '.mc-outfit-img img{width:100%;height:100%;display:block;object-fit:cover;object-position:var(--mc-pos,50% 20%)}' +
       '.mc-outfit-body{display:block;padding:16px 12px 0}' +
       '.mc-outfit-title{display:block;font-size:17px;line-height:1.4;margin:0 0 4px}' +
       '.mc-outfit-meta{display:block;font-size:14px;color:#777;margin:0 0 6px}' +
@@ -37,8 +38,8 @@
         '.mc-outfit{margin:20px 0 24px;text-align:left}' +
         '.mc-outfit-head{margin:0 0 8px}' +
         '.mc-outfit-card{display:flex;align-items:stretch;gap:12px;border:1px solid #e8e8e8;border-radius:8px;padding:10px;background:#fff}' +
-        '.mc-outfit-img{flex:0 0 96px;width:96px;height:96px;border-radius:6px}' +
-        '.mc-outfit-img img{width:100%;height:100%;object-fit:cover}' +
+        '.mc-outfit-img{flex:0 0 96px;width:96px;height:96px;aspect-ratio:auto;border-radius:6px}' +
+        '.mc-outfit-img img{width:100%;height:100%;object-fit:cover;object-position:50% 25%}' +
         '.mc-outfit-body{flex:1 1 auto;min-width:0;padding:2px 0 0;display:flex;flex-direction:column;justify-content:center}' +
         '.mc-outfit-title{font-size:15px;line-height:1.3;margin:0 0 2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
         '.mc-outfit-meta{font-size:12px;margin:0 0 4px}' +
@@ -73,7 +74,12 @@
     // 宏鈞 10/18:標題只留「圖中穿搭」,不加「圖中下身/上身」
     box.innerHTML = '<p class="mc-outfit-head">' + esc(T.head) + '</p>' +
       '<a class="mc-outfit-card" href="' + esc(it.url) + '" data-mc-outfit-sku="' + esc(it.sku) + '">' +
-      '<span class="mc-outfit-img"><img loading="lazy" alt="' + esc(title) + '" src="' + img(data.mid, it.cover, '750x') + '" srcset="' + img(data.mid, it.cover, '750x') + ' 750w, ' + img(data.mid, it.cover, '1200x') + ' 1200w" sizes="(min-width:768px) 1000px, 100vw"></span>' +
+      // 宏鈞 10/18:桌機用「本商品頁」的照片(p.photo.media,正方形裁切,p.photo.pos 決定裁哪一段);沒指定就用對方商品封面。
+      //            手機維持方型小卡用對方商品封面(<picture> 依螢幕寬度切換)。
+      '<span class="mc-outfit-img"><picture>' +
+        '<source media="(max-width:767px)" srcset="' + img(data.mid, it.cover, '300x') + '">' +
+        '<img loading="lazy" alt="' + esc(title) + '" style="--mc-pos:' + esc((p.photo && p.photo.pos) || '50% 20%') + '"' +
+        ' src="' + img(data.mid, (p.photo && p.photo.media) || it.cover, '1200x') + '"></picture></span>' +
       '<span class="mc-outfit-body"><span class="mc-outfit-title">' + esc(title) + (it.soldout ? '<span class="mc-outfit-badge">' + esc(T.sold) + '</span>' : '') + '</span>' +
       '<span class="mc-outfit-meta">' + esc(T.color) + esc(it.color) + '</span>' + price +
       '<span class="mc-outfit-cta">' + esc(it.soldout ? T.ctaSold : T.cta) + '</span></span></a>';
