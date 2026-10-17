@@ -77,7 +77,7 @@
     if (VARIANT === 'B') {
       el.innerHTML = '<a class="NavigationBar-actionMenu-button nav-color mc-credit-btn" href="' + LINK + '" aria-label="購物金 ' + fmt(balance) + '">' + ICONS.coin + '<span class="mc-credit-chip">' + fmt(balance) + '</span><span class="mc-credit-badge mc-credit-badge-m">' + (balance >= 10000 ? '9999+' : Math.round(balance)) + '</span></a>';   // 手機版:徽章直接寫金額數字(跟購物袋的數字徽章同一種語言)
     } else if (VARIANT === 'C') {
-      el.innerHTML = '<button type="button" class="NavigationBar-actionMenu-button nav-color mc-credit-btn" aria-label="購物金" style="color:' + ACCENT + '">' + ICONS.ticket.replace('fill="currentColor"', 'fill="' + ACCENT + '"') + '</button>' +   // 原生 .nav-color 會蓋掉 class 的顏色,直接寫在 svg 上
+      el.innerHTML = '<button type="button" class="NavigationBar-actionMenu-button nav-color mc-credit-btn" aria-label="購物金" style="color:' + ACCENT + '">' + ICONS.ticket.replace('fill="currentColor"', 'style="fill:' + ACCENT + ' !important;color:' + ACCENT + ' !important"').replace('<path ', '<path style="fill:' + ACCENT + ' !important" ') + '</button>' +   // 原生 .nav-color 會蓋掉 class 的顏色,直接寫在 svg 上
         '<div class="mc-credit-pop pop-c" role="dialog"><div class="l">可用購物金</div><div class="v">' + fmt(balance) + '</div><a href="' + LINK + '">使用購物金 ›</a></div>';
     } else {
       el.innerHTML = '<button type="button" class="NavigationBar-actionMenu-button nav-color mc-credit-btn" aria-label="購物金">' + ICONS.wallet + '<span class="mc-credit-badge">$</span></button>' +
