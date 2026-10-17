@@ -60,7 +60,12 @@
     var detail = document.querySelector('.ProductDetail-product-info .variation-detail, .js-product-info .variation-detail');
     if (!detail || detail.closest('.quick-cart')) return false;
     if (detail.querySelector('[' + CFG.mark + ']')) return true;
-    var btns = detail.querySelector('.product-detail-button-container');
+    // 桌機版 .variation-detail 裡還有一個藏在「加價購摘要」(addon-promotion-summary.ng-hide)內的同名按鈕容器,要挑直接子層、看得見的那個
+    var btns = detail.querySelector(':scope > .product-detail-button-container');
+    if (!btns) {
+      var all = detail.querySelectorAll('.product-detail-button-container');
+      for (var i = 0; i < all.length; i++) if (all[i].offsetParent !== null) { btns = all[i]; break; }
+    }
     if (!btns) return false;
     var after = btns.nextElementSibling && /wishlist/i.test(btns.nextElementSibling.className) ? btns.nextElementSibling : btns;
     after.parentNode.insertBefore(render(data, p), after.nextSibling);
