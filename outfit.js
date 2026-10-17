@@ -24,7 +24,7 @@
       '.mc-outfit-img{flex:0 0 72px;width:72px;height:96px;border-radius:6px;overflow:hidden;background:#f3f3f3}' +
       '.mc-outfit-img img{width:100%;height:100%;object-fit:cover;display:block}' +
       '.mc-outfit-body{flex:1 1 auto;min-width:0}' +
-      '.mc-outfit-title{display:block;font-size:15px;line-height:1.35;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.mc-outfit-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;line-height:1.35;margin:0 0 2px;overflow:hidden}' +   // 英日品名較長,允許兩行
       '.mc-outfit-meta{display:block;font-size:13px;color:#777;margin:0 0 6px}' +
       '.mc-outfit-price{display:block;font-size:15px;font-weight:600}' +
       '.mc-outfit-price s{color:#aaa;font-weight:400;margin-left:6px;font-size:13px}' +
