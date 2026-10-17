@@ -1,4 +1,4 @@
-/* MACACA 圖中穿搭 v0.1(2026-10-17 示意,未發布)
+/* MACACA 圖中穿搭 v0.2(2026-10-17 示意,未發布;三語)
  * 作用:商品頁在「加入購物車」按鈕下方,顯示照片裡搭配的另一件(上身頁顯示「圖中下身」、下身頁顯示「圖中上身」),點了跳到那件的商品頁。
  * 資料:pairs.json(GitHub Pages;示意版只有 非夏哲學美背bratop ↔ 非夏哲學瑜伽寬褲 同色 8 組;正式版每晚由共用照片比對+人工核對表產生)。
  * 安全:找不到預期元素就不動;JSON enabled=false 或 localStorage mcOutfitOff=1 即關閉;GTM 暫停=全站關閉。
@@ -36,18 +36,32 @@
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   }
 
+  // 三語介面文字:跟著官網目前語言(html lang = zh-hant / en / ja)。品名用商品的 title_translations;顏色名官網英日版也是中文,照官網。
+  var I18N = {
+    'zh-hant': { head: '圖中穿搭', bottom: '圖中下身', top: '圖中上身', color: '顏色:', cta: '看這件 ›', ctaSold: '看這件', sold: '售完' },
+    'en':      { head: 'Shop the look', bottom: 'Bottom in this photo', top: 'Top in this photo', color: 'Color: ', cta: 'View ›', ctaSold: 'View', sold: 'Sold out' },
+    'ja':      { head: '着用アイテム', bottom: '写真のボトムス', top: '写真のトップス', color: 'カラー：', cta: '詳細を見る ›', ctaSold: '詳細を見る', sold: '完売' }
+  };
+  function lang() {
+    var l = String(document.documentElement.lang || '').toLowerCase();
+    if (l.indexOf('en') === 0) return 'en';
+    if (l.indexOf('ja') === 0) return 'ja';
+    return 'zh-hant';
+  }
   function render(data, p) {
-    var it = p.item;
+    var it = p.item, L = lang(), T = I18N[L];
+    var title = (it.title_i18n && it.title_i18n[L]) || it.title;
+    var roleLabel = it.role === 'top' ? T.top : T.bottom;
     var price = it.price_sale ? '<span class="mc-outfit-price">' + esc(it.price_sale) + '<s>' + esc(it.price) + '</s></span>' : '<span class="mc-outfit-price">' + esc(it.price) + '</span>';
     var box = document.createElement('div');
     box.className = 'mc-outfit' + (it.soldout ? ' mc-outfit-soldout' : '');
-    box.setAttribute(CFG.mark, '1');
-    box.innerHTML = '<p class="mc-outfit-head">圖中穿搭 · ' + esc(p.label) + '</p>' +
+    box.setAttribute(CFG.mark, '1'); box.setAttribute('lang', L);
+    box.innerHTML = '<p class="mc-outfit-head">' + esc(T.head) + ' · ' + esc(roleLabel) + '</p>' +
       '<a class="mc-outfit-card" href="' + esc(it.url) + '" data-mc-outfit-sku="' + esc(it.sku) + '">' +
-      '<span class="mc-outfit-img"><img loading="lazy" alt="' + esc(it.title) + '" src="' + img(data.mid, it.cover) + '"></span>' +
-      '<span class="mc-outfit-body"><span class="mc-outfit-title">' + esc(it.title) + (it.soldout ? '<span class="mc-outfit-badge">售完</span>' : '') + '</span>' +
-      '<span class="mc-outfit-meta">顏色:' + esc(it.color) + '</span>' + price + '</span>' +
-      '<span class="mc-outfit-cta">' + (it.soldout ? '看這件' : '看這件 ›') + '</span></a>';
+      '<span class="mc-outfit-img"><img loading="lazy" alt="' + esc(title) + '" src="' + img(data.mid, it.cover) + '"></span>' +
+      '<span class="mc-outfit-body"><span class="mc-outfit-title">' + esc(title) + (it.soldout ? '<span class="mc-outfit-badge">' + esc(T.sold) + '</span>' : '') + '</span>' +
+      '<span class="mc-outfit-meta">' + esc(T.color) + esc(it.color) + '</span>' + price + '</span>' +
+      '<span class="mc-outfit-cta">' + esc(it.soldout ? T.ctaSold : T.cta) + '</span></a>';
     box.querySelector('a').addEventListener('click', function () {
       try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_outfit_click', outfit_from: pid(), outfit_to: it.id, outfit_sku: it.sku }); } catch (e) {}
     });
