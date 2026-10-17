@@ -31,7 +31,7 @@
   var ICONS = {
     wallet: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4 4.5A1.5 1.5 0 0 1 5.5 3h12a1 1 0 1 1 0 2H6v1h14a2 2 0 0 1 2 2v3h-5.5a3.5 3.5 0 0 0 0 7H22v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15.5zM16.5 12.5a2 2 0 1 0 0 4h5.5v-4h-5.5z"/></svg>',
     coin: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm.9 4h-1.8v1.3c-1.7.3-2.8 1.4-2.8 2.9 0 1.6 1 2.4 3.1 3 1.6.4 2.1.8 2.1 1.5 0 .7-.6 1.2-1.6 1.2-1.1 0-1.8-.5-1.9-1.5H8.1c.1 1.8 1.3 2.9 3 3.2V19h1.8v-1.4c1.8-.3 2.9-1.4 2.9-3 0-1.7-1-2.5-3.2-3.1-1.5-.4-2-.8-2-1.4 0-.6.5-1.1 1.4-1.1 1 0 1.6.5 1.7 1.4h1.9c-.1-1.7-1.2-2.8-2.7-3.1V6z"/></svg>',
-    ticket: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2.2a2.8 2.8 0 0 0 0 5.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2.2a2.8 2.8 0 0 0 0-5.6V7zm13 1h-1.6v8H15V8zm-5.4 0H8v8h1.6V8z"/></svg>'
+    ticket: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v2.3a3.2 3.2 0 0 0 0 6.4v2.3a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-2.3a3.2 3.2 0 0 0 0-6.4V6.5zm6.2 1.7h-1.4v1.6h1.4V8.2zm0 3h-1.4v1.6h1.4v-1.6zm0 3h-1.4v1.6h1.4v-1.6z"/></svg>'
   };
 
   function injectCSS() {
@@ -42,6 +42,8 @@
       '.mc-credit .mc-credit-badge{position:absolute;top:-6px;right:-10px;min-width:18px;height:18px;line-height:18px;padding:0 5px;border-radius:10px;background:' + PINK + ';color:#fff;font-size:11px;font-weight:400;text-align:center;box-sizing:border-box;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}' +
       // B 金額標籤:徽章同色、接在圖示右邊
       '.mc-credit .mc-credit-chip{display:inline-block;margin-left:5px;height:18px;line-height:18px;padding:0 7px;border-radius:10px;background:' + PINK + ';color:#fff;font-size:11px;white-space:nowrap;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.02em}' +
+      '.mc-credit .mc-credit-badge-m{display:none}' +
+      '@media (max-width:767px){.mc-credit .mc-credit-chip{display:none}.mc-credit .mc-credit-badge-m{display:block}}' +
       // C 主題色圖示
       '.mc-credit.mc-credit-c .mc-credit-btn{color:' + ACCENT + '}' +
       // 氣泡共用:白底、細框、貼合內容寬度
@@ -73,7 +75,7 @@
     el.style.position = 'relative';
     var pop = null;
     if (VARIANT === 'B') {
-      el.innerHTML = '<a class="NavigationBar-actionMenu-button nav-color mc-credit-btn" href="' + LINK + '" aria-label="購物金 ' + fmt(balance) + '">' + ICONS.coin + '<span class="mc-credit-chip">' + fmt(balance) + '</span></a>';
+      el.innerHTML = '<a class="NavigationBar-actionMenu-button nav-color mc-credit-btn" href="' + LINK + '" aria-label="購物金 ' + fmt(balance) + '">' + ICONS.coin + '<span class="mc-credit-chip">' + fmt(balance) + '</span><span class="mc-credit-badge mc-credit-badge-m">$</span></a>';
     } else if (VARIANT === 'C') {
       el.innerHTML = '<button type="button" class="NavigationBar-actionMenu-button nav-color mc-credit-btn" aria-label="購物金">' + ICONS.ticket + '</button>' +
         '<div class="mc-credit-pop pop-c" role="dialog"><div class="l">可用購物金</div><div class="v">' + fmt(balance) + '</div><a href="' + LINK + '">使用購物金 ›</a></div>';
