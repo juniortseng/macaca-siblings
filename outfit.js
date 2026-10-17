@@ -1,4 +1,4 @@
-/* MACACA 圖中穿搭 v0.4(2026-10-17 示意,未發布;三語;位置=商品描述「產地」上方;大圖直式版面)
+/* MACACA 圖中穿搭 v0.5(2026-10-17 示意,未發布;三語;大圖直式;位置可選 gallery/desc-top/origin/lookbook,預設 origin)
  * 作用:商品頁在「加入購物車」按鈕下方,顯示照片裡搭配的另一件(上身頁顯示「圖中下身」、下身頁顯示「圖中上身」),點了跳到那件的商品頁。
  * 資料:pairs.json(GitHub Pages;示意版只有 非夏哲學美背bratop ↔ 非夏哲學瑜伽寬褲 同色 8 組;正式版每晚由共用照片比對+人工核對表產生)。
  * 安全:找不到預期元素就不動;JSON enabled=false 或 localStorage mcOutfitOff=1 即關閉;GTM 暫停=全站關閉。
@@ -88,16 +88,39 @@
     }
     return null;
   }
+  // 位置選項(宏鈞 10/17 要比較三個位置):
+  //   gallery  = 商品主圖正下方(桌機左欄圖庫下、手機輪播圖下、品名上)
+  //   desc-top = 商品描述分頁最上方(「商品描述」標題下、第一段前)
+  //   origin   = 描述裡「產地」上方(找不到就描述最後)
+  //   lookbook = 「了解更多」穿搭圖庫上方(描述結束處)
+  // 由 pairs.json 的 position 決定,測試可用 window.__mcOutfitPos 覆蓋;預設 origin。
+  function firstVisible(sel) { var els = document.querySelectorAll(sel); for (var i = 0; i < els.length; i++) if (!els[i].closest('.quick-cart') && els[i].offsetParent !== null) return els[i]; return null; }
   function place(data) {
     var p = data.pairs && data.pairs[pid()];
     if (!p || !p.item) return true;                               // 這件沒有配對 → 不做事(回 true 表示不用再等)
-    var desc = null, descs = document.querySelectorAll('.ProductDetail-description');
-    for (var d = 0; d < descs.length; d++) if (!descs[d].closest('.quick-cart')) { desc = descs[d]; break; }
-    if (!desc) return false;
-    if (desc.querySelector('[' + CFG.mark + ']')) return true;
-    var origin = findOriginBlock(desc);
-    var box = render(data, p);
-    if (origin) origin.parentNode.insertBefore(box, origin); else desc.appendChild(box);
+    if (document.querySelector('[' + CFG.mark + ']')) return true;
+    var pos = window.__mcOutfitPos || data.position || 'origin';
+    var box = render(data, p); box.setAttribute('data-mc-outfit-pos', pos);
+    if (pos === 'gallery') {
+      var gal = firstVisible('.ProductDetail-product-gallery');
+      if (!gal) return false;
+      gal.appendChild(box);
+    } else if (pos === 'lookbook') {
+      var lb = firstVisible('.ProductDetail-gallery');
+      if (!lb) return false;
+      lb.parentNode.insertBefore(box, lb);
+    } else {
+      var desc = firstVisible('.ProductDetail-description');
+      if (!desc) return false;
+      if (pos === 'desc-top') {
+        var first = desc.firstElementChild;
+        var isHeading = first && (first.textContent || '').trim().length <= 12;   // 「商品描述 / Description / 商品の説明」標題
+        if (isHeading) desc.insertBefore(box, first.nextSibling); else desc.insertBefore(box, first);
+      } else {
+        var origin = findOriginBlock(desc);
+        if (origin) origin.parentNode.insertBefore(box, origin); else desc.appendChild(box);
+      }
+    }
     try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_outfit_shown', outfit_from: pid(), outfit_to: p.item.id, outfit_sku: p.item.sku }); } catch (e) {}
     return true;
   }
