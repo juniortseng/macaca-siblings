@@ -1,4 +1,4 @@
-/* MACACA 圖中穿搭 v0.3(2026-10-17 示意,未發布;三語;位置=商品描述「產地」上方)
+/* MACACA 圖中穿搭 v0.4(2026-10-17 示意,未發布;三語;位置=商品描述「產地」上方;大圖直式版面)
  * 作用:商品頁在「加入購物車」按鈕下方,顯示照片裡搭配的另一件(上身頁顯示「圖中下身」、下身頁顯示「圖中上身」),點了跳到那件的商品頁。
  * 資料:pairs.json(GitHub Pages;示意版只有 非夏哲學美背bratop ↔ 非夏哲學瑜伽寬褲 同色 8 組;正式版每晚由共用照片比對+人工核對表產生)。
  * 安全:找不到預期元素就不動;JSON enabled=false 或 localStorage mcOutfitOff=1 即關閉;GTM 暫停=全站關閉。
@@ -17,22 +17,22 @@
   function pid() { try { return window.mainConfig.trackerEventData['Product ID'] || ''; } catch (e) { return ''; } }
 
   function injectCSS() {
-    var css = '.mc-outfit{max-width:520px;margin:28px auto 32px;padding:14px;border:1px solid #e8e8e8;border-radius:8px;background:#fff;text-align:left}' +
-      '.mc-outfit-head{font-size:12px;letter-spacing:.12em;color:#888;margin:0 0 10px}' +
-      '.mc-outfit-card{display:flex;align-items:center;gap:14px;text-decoration:none;color:#222}' +
+    var css = '.mc-outfit{max-width:1000px;margin:32px auto 40px;padding:0;background:#fff;text-align:center}' +
+      '.mc-outfit-head{font-size:12px;letter-spacing:.14em;color:#888;margin:0 0 12px}' +
+      '.mc-outfit-card{display:block;text-decoration:none;color:#222}' +
       '.mc-outfit-card:hover{text-decoration:none;color:#222}' +
-      '.mc-outfit-img{flex:0 0 72px;width:72px;height:96px;border-radius:6px;overflow:hidden;background:#f3f3f3}' +
-      '.mc-outfit-img img{width:100%;height:100%;object-fit:cover;display:block}' +
-      '.mc-outfit-body{flex:1 1 auto;min-width:0}' +
-      '.mc-outfit-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;line-height:1.35;margin:0 0 2px;overflow:hidden}' +   // 英日品名較長,允許兩行
-      '.mc-outfit-meta{display:block;font-size:13px;color:#777;margin:0 0 6px}' +
-      '.mc-outfit-price{display:block;font-size:15px;font-weight:600}' +
-      '.mc-outfit-price s{color:#aaa;font-weight:400;margin-left:6px;font-size:13px}' +
-      '.mc-outfit-cta{flex:0 0 auto;font-size:13px;padding:8px 14px;border:1px solid #222;border-radius:4px;white-space:nowrap}' +
+      '.mc-outfit-img{display:block;width:100%;background:#f3f3f3;overflow:hidden}' +
+      '.mc-outfit-img img{width:100%;height:auto;display:block}' +                                   // 原比例,不裁
+      '.mc-outfit-body{display:block;padding:16px 12px 0}' +
+      '.mc-outfit-title{display:block;font-size:17px;line-height:1.4;margin:0 0 4px}' +
+      '.mc-outfit-meta{display:block;font-size:14px;color:#777;margin:0 0 6px}' +
+      '.mc-outfit-price{display:block;font-size:17px;font-weight:600;margin:0 0 14px}' +
+      '.mc-outfit-price s{color:#aaa;font-weight:400;margin-left:8px;font-size:14px}' +
+      '.mc-outfit-cta{display:inline-block;font-size:14px;padding:10px 28px;border:1px solid #222;border-radius:4px;letter-spacing:.06em}' +
       '.mc-outfit-card:hover .mc-outfit-cta{background:#222;color:#fff}' +
       '.mc-outfit-soldout .mc-outfit-cta{border-color:#bbb;color:#999}' +
       '.mc-outfit-badge{display:inline-block;font-size:11px;color:#b55;border:1px solid #e3b4b4;border-radius:3px;padding:0 5px;margin-left:6px;vertical-align:middle}' +
-      '@media (max-width:767px){.mc-outfit{margin:14px 0 4px}.mc-outfit-cta{padding:7px 10px}}';
+      '@media (max-width:767px){.mc-outfit{margin:24px 0 28px}.mc-outfit-body{padding-top:12px}.mc-outfit-cta{display:block;margin:0 12px;padding:11px 0}}';   // 手機:圖滿版、按鈕滿寬
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   }
 
@@ -56,12 +56,13 @@
     var box = document.createElement('div');
     box.className = 'mc-outfit' + (it.soldout ? ' mc-outfit-soldout' : '');
     box.setAttribute(CFG.mark, '1'); box.setAttribute('lang', L);
+    // 版面(宏鈞 10/17):圖跟描述區的商品圖一樣寬(桌機 1000px、手機滿版),原比例不裁;品名/顏色/價格/按鈕在圖下方置中。桌機手機同一套。
     box.innerHTML = '<p class="mc-outfit-head">' + esc(T.head) + ' · ' + esc(roleLabel) + '</p>' +
       '<a class="mc-outfit-card" href="' + esc(it.url) + '" data-mc-outfit-sku="' + esc(it.sku) + '">' +
-      '<span class="mc-outfit-img"><img loading="lazy" alt="' + esc(title) + '" src="' + img(data.mid, it.cover) + '"></span>' +
+      '<span class="mc-outfit-img"><img loading="lazy" alt="' + esc(title) + '" src="' + img(data.mid, it.cover, '750x') + '" srcset="' + img(data.mid, it.cover, '750x') + ' 750w, ' + img(data.mid, it.cover, '1200x') + ' 1200w" sizes="(min-width:768px) 1000px, 100vw"></span>' +
       '<span class="mc-outfit-body"><span class="mc-outfit-title">' + esc(title) + (it.soldout ? '<span class="mc-outfit-badge">' + esc(T.sold) + '</span>' : '') + '</span>' +
-      '<span class="mc-outfit-meta">' + esc(T.color) + esc(it.color) + '</span>' + price + '</span>' +
-      '<span class="mc-outfit-cta">' + esc(it.soldout ? T.ctaSold : T.cta) + '</span></a>';
+      '<span class="mc-outfit-meta">' + esc(T.color) + esc(it.color) + '</span>' + price +
+      '<span class="mc-outfit-cta">' + esc(it.soldout ? T.ctaSold : T.cta) + '</span></span></a>';
     box.querySelector('a').addEventListener('click', function () {
       try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_outfit_click', outfit_from: pid(), outfit_to: it.id, outfit_sku: it.sku }); } catch (e) {}
     });
