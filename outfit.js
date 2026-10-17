@@ -1,4 +1,4 @@
-/* MACACA 圖中穿搭 v0.5(2026-10-17 示意,未發布;三語;大圖直式;位置可選 gallery/desc-top/origin/lookbook,預設 origin)
+/* MACACA 圖中穿搭 v0.6(2026-10-18 示意,未發布;三語;桌機大圖直式、手機方型小卡;標題只留「圖中穿搭」;位置可選,預設 origin)
  * 作用:商品頁在「加入購物車」按鈕下方,顯示照片裡搭配的另一件(上身頁顯示「圖中下身」、下身頁顯示「圖中上身」),點了跳到那件的商品頁。
  * 資料:pairs.json(GitHub Pages;示意版只有 非夏哲學美背bratop ↔ 非夏哲學瑜伽寬褲 同色 8 組;正式版每晚由共用照片比對+人工核對表產生)。
  * 安全:找不到預期元素就不動;JSON enabled=false 或 localStorage mcOutfitOff=1 即關閉;GTM 暫停=全站關閉。
@@ -32,7 +32,20 @@
       '.mc-outfit-card:hover .mc-outfit-cta{background:#222;color:#fff}' +
       '.mc-outfit-soldout .mc-outfit-cta{border-color:#bbb;color:#999}' +
       '.mc-outfit-badge{display:inline-block;font-size:11px;color:#b55;border:1px solid #e3b4b4;border-radius:3px;padding:0 5px;margin-left:6px;vertical-align:middle}' +
-      '@media (max-width:767px){.mc-outfit{margin:24px 0 28px}.mc-outfit-body{padding-top:12px}.mc-outfit-cta{display:block;margin:0 12px;padding:11px 0}}';   // 手機:圖滿版、按鈕滿寬
+      // 手機(宏鈞 10/18):方型小卡——正方形縮圖在左(圖片置中裁切)、品名/顏色/價格在右、「看這件 ›」小字在右下;整張可點
+      '@media (max-width:767px){' +
+        '.mc-outfit{margin:20px 0 24px;text-align:left}' +
+        '.mc-outfit-head{margin:0 0 8px}' +
+        '.mc-outfit-card{display:flex;align-items:stretch;gap:12px;border:1px solid #e8e8e8;border-radius:8px;padding:10px;background:#fff}' +
+        '.mc-outfit-img{flex:0 0 96px;width:96px;height:96px;border-radius:6px}' +
+        '.mc-outfit-img img{width:100%;height:100%;object-fit:cover}' +
+        '.mc-outfit-body{flex:1 1 auto;min-width:0;padding:2px 0 0;display:flex;flex-direction:column;justify-content:center}' +
+        '.mc-outfit-title{font-size:15px;line-height:1.3;margin:0 0 2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
+        '.mc-outfit-meta{font-size:12px;margin:0 0 4px}' +
+        '.mc-outfit-price{font-size:15px;margin:0 0 4px}' +
+        '.mc-outfit-cta{display:inline-block;align-self:flex-end;font-size:12px;padding:0;border:0;letter-spacing:.04em;color:#555;text-decoration:underline;text-underline-offset:2px}' +
+        '.mc-outfit-card:hover .mc-outfit-cta{background:none;color:#222}' +
+      '}';
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   }
 
@@ -57,7 +70,8 @@
     box.className = 'mc-outfit' + (it.soldout ? ' mc-outfit-soldout' : '');
     box.setAttribute(CFG.mark, '1'); box.setAttribute('lang', L);
     // 版面(宏鈞 10/17):圖跟描述區的商品圖一樣寬(桌機 1000px、手機滿版),原比例不裁;品名/顏色/價格/按鈕在圖下方置中。桌機手機同一套。
-    box.innerHTML = '<p class="mc-outfit-head">' + esc(T.head) + ' · ' + esc(roleLabel) + '</p>' +
+    // 宏鈞 10/18:標題只留「圖中穿搭」,不加「圖中下身/上身」
+    box.innerHTML = '<p class="mc-outfit-head">' + esc(T.head) + '</p>' +
       '<a class="mc-outfit-card" href="' + esc(it.url) + '" data-mc-outfit-sku="' + esc(it.sku) + '">' +
       '<span class="mc-outfit-img"><img loading="lazy" alt="' + esc(title) + '" src="' + img(data.mid, it.cover, '750x') + '" srcset="' + img(data.mid, it.cover, '750x') + ' 750w, ' + img(data.mid, it.cover, '1200x') + ' 1200w" sizes="(min-width:768px) 1000px, 100vw"></span>' +
       '<span class="mc-outfit-body"><span class="mc-outfit-title">' + esc(title) + (it.soldout ? '<span class="mc-outfit-badge">' + esc(T.sold) + '</span>' : '') + '</span>' +
@@ -107,8 +121,12 @@
       gal.appendChild(box);
     } else if (pos === 'lookbook') {
       var lb = firstVisible('.ProductDetail-gallery');
-      if (!lb) return false;
-      lb.parentNode.insertBefore(box, lb);
+      if (lb) { lb.parentNode.insertBefore(box, lb); }
+      else {                                                      // 這款沒有「了解更多」圖庫 → 放描述最後
+        var desc2 = firstVisible('.ProductDetail-description');
+        if (!desc2) return false;
+        desc2.appendChild(box);
+      }
     } else {
       var desc = firstVisible('.ProductDetail-description');
       if (!desc) return false;
