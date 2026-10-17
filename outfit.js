@@ -1,4 +1,4 @@
-/* MACACA 圖中穿搭 v0.2(2026-10-17 示意,未發布;三語)
+/* MACACA 圖中穿搭 v0.3(2026-10-17 示意,未發布;三語;位置=商品描述「產地」上方)
  * 作用:商品頁在「加入購物車」按鈕下方,顯示照片裡搭配的另一件(上身頁顯示「圖中下身」、下身頁顯示「圖中上身」),點了跳到那件的商品頁。
  * 資料:pairs.json(GitHub Pages;示意版只有 非夏哲學美背bratop ↔ 非夏哲學瑜伽寬褲 同色 8 組;正式版每晚由共用照片比對+人工核對表產生)。
  * 安全:找不到預期元素就不動;JSON enabled=false 或 localStorage mcOutfitOff=1 即關閉;GTM 暫停=全站關閉。
@@ -17,7 +17,7 @@
   function pid() { try { return window.mainConfig.trackerEventData['Product ID'] || ''; } catch (e) { return ''; } }
 
   function injectCSS() {
-    var css = '.mc-outfit{margin:18px 0 6px;padding:14px;border:1px solid #e8e8e8;border-radius:8px;background:#fff}' +
+    var css = '.mc-outfit{max-width:520px;margin:28px auto 32px;padding:14px;border:1px solid #e8e8e8;border-radius:8px;background:#fff;text-align:left}' +
       '.mc-outfit-head{font-size:12px;letter-spacing:.12em;color:#888;margin:0 0 10px}' +
       '.mc-outfit-card{display:flex;align-items:center;gap:14px;text-decoration:none;color:#222}' +
       '.mc-outfit-card:hover{text-decoration:none;color:#222}' +
@@ -68,21 +68,35 @@
     return box;
   }
 
+  // 位置(宏鈞 10/17):商品描述分頁裡「產地」標題的上方。描述是每件商品自己寫的 HTML,三語共用同一段(標題都是中文「產地」)。
+  // 找法:描述區裡第一個文字以「產地」開頭的末端元素 → 往上找最近的區塊(div/p/h*),且該區塊文字很短(避免整段描述包在一個 div 裡時插到最上面)。
+  // 找不到「產地」→ 退而放在描述最後面。
+  function findOriginBlock(desc) {
+    var all = desc.querySelectorAll('*');
+    for (var i = 0; i < all.length; i++) {
+      var e = all[i];
+      if (e.children.length) continue;
+      if (!/^\s*產地/.test(e.textContent || '')) continue;
+      var n = e;
+      while (n && n !== desc) {
+        var isBlock = /^(DIV|P|H[1-6]|LI|SECTION|TABLE)$/.test(n.tagName);
+        if (isBlock && (n.textContent || '').trim().length <= 40) { var up = n; while (up.parentElement && up.parentElement !== desc && /^(DIV|P)$/.test(up.parentElement.tagName) && (up.parentElement.textContent || '').trim().length <= 40) up = up.parentElement; return up; }
+        n = n.parentElement;
+      }
+      return e.parentElement || e;
+    }
+    return null;
+  }
   function place(data) {
     var p = data.pairs && data.pairs[pid()];
     if (!p || !p.item) return true;                               // 這件沒有配對 → 不做事(回 true 表示不用再等)
-    var detail = document.querySelector('.ProductDetail-product-info .variation-detail, .js-product-info .variation-detail');
-    if (!detail || detail.closest('.quick-cart')) return false;
-    if (detail.querySelector('[' + CFG.mark + ']')) return true;
-    // 桌機版 .variation-detail 裡還有一個藏在「加價購摘要」(addon-promotion-summary.ng-hide)內的同名按鈕容器,要挑直接子層、看得見的那個
-    var btns = detail.querySelector(':scope > .product-detail-button-container');
-    if (!btns) {
-      var all = detail.querySelectorAll('.product-detail-button-container');
-      for (var i = 0; i < all.length; i++) if (all[i].offsetParent !== null) { btns = all[i]; break; }
-    }
-    if (!btns) return false;
-    var after = btns.nextElementSibling && /wishlist/i.test(btns.nextElementSibling.className) ? btns.nextElementSibling : btns;
-    after.parentNode.insertBefore(render(data, p), after.nextSibling);
+    var desc = null, descs = document.querySelectorAll('.ProductDetail-description');
+    for (var d = 0; d < descs.length; d++) if (!descs[d].closest('.quick-cart')) { desc = descs[d]; break; }
+    if (!desc) return false;
+    if (desc.querySelector('[' + CFG.mark + ']')) return true;
+    var origin = findOriginBlock(desc);
+    var box = render(data, p);
+    if (origin) origin.parentNode.insertBefore(box, origin); else desc.appendChild(box);
     try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_outfit_shown', outfit_from: pid(), outfit_to: p.item.id, outfit_sku: p.item.sku }); } catch (e) {}
     return true;
   }
