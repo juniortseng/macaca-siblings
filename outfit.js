@@ -1,4 +1,4 @@
-/* MACACA 圖中穿搭 v0.8.1(2026-10-18 示意,未發布;看這件不反白;三語;桌機正方形用本頁照片、手機方型小卡;一頁可多件;標題只留「圖中穿搭」;位置由 pairs.json)
+/* MACACA 圖中穿搭 v0.8.2(2026-10-18 示意,未發布;看這件不反白、滑過/按到字加粗約20%;三語;桌機正方形用本頁照片、手機方型小卡;一頁可多件;標題只留「圖中穿搭」;位置由 pairs.json)
  * 作用:商品頁在「加入購物車」按鈕下方,顯示照片裡搭配的另一件(上身頁顯示「圖中下身」、下身頁顯示「圖中上身」),點了跳到那件的商品頁。
  * 資料:pairs.json(GitHub Pages;示意版只有 非夏哲學美背bratop ↔ 非夏哲學瑜伽寬褲 同色 8 組;正式版每晚由共用照片比對+人工核對表產生)。
  * 安全:找不到預期元素就不動;JSON enabled=false 或 localStorage mcOutfitOff=1 即關閉;GTM 暫停=全站關閉。
@@ -31,6 +31,9 @@
       '.mc-outfit-price s{color:#aaa;font-weight:400;margin-left:8px;font-size:14px}' +
       '.mc-outfit-cta{display:inline-block;font-size:14px;padding:10px 28px;border:1px solid #222;border-radius:4px;letter-spacing:.06em}' +
       '.mc-outfit-soldout .mc-outfit-cta{border-color:#bbb;color:#999}' +
+      // 宏鈞 10/18:滑鼠經過或手指按到時,「看這件」字變粗約 20%(用描邊加粗,按鈕寬度不會跳動;不反白)
+      '.mc-outfit-cta{transition:-webkit-text-stroke-width .12s ease}' +
+      '.mc-outfit-card:hover .mc-outfit-cta,.mc-outfit-card:active .mc-outfit-cta,.mc-outfit-card:focus-visible .mc-outfit-cta,.mc-outfit-card.mc-touch .mc-outfit-cta{-webkit-text-stroke:.3px currentColor;text-stroke:.3px currentColor}' +
       '.mc-outfit-multi .mc-outfit-cards{display:grid;gap:24px;grid-template-columns:repeat(2,minmax(0,1fr))}' +
       '.mc-outfit-n3 .mc-outfit-cards{grid-template-columns:repeat(3,minmax(0,1fr))}' +
       '.mc-outfit-n4 .mc-outfit-cards{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}' +
@@ -86,6 +89,10 @@
       '<span class="mc-outfit-body"><span class="mc-outfit-title">' + esc(title) + (it.soldout ? '<span class="mc-outfit-badge">' + esc(T.sold) + '</span>' : '') + '</span>' +
       '<span class="mc-outfit-meta">' + esc(T.color) + esc(it.color) + '</span>' + price +
       '<span class="mc-outfit-cta">' + esc(it.soldout ? T.ctaSold : T.cta) + '</span></span>';
+    // 手機:iOS 的 :active 不一定觸發,用 touchstart/touchend 補一個 class
+    a.addEventListener('touchstart', function () { a.classList.add('mc-touch'); }, { passive: true });
+    a.addEventListener('touchend', function () { setTimeout(function () { a.classList.remove('mc-touch'); }, 180); }, { passive: true });
+    a.addEventListener('touchcancel', function () { a.classList.remove('mc-touch'); }, { passive: true });
     a.addEventListener('click', function () {
       try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_outfit_click', outfit_from: pid(), outfit_to: it.id, outfit_sku: it.sku }); } catch (err) {}
     });
