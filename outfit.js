@@ -1,4 +1,4 @@
-/* MACACA 圖中穿搭 v0.7(2026-10-18 示意,未發布;三語;桌機正方形用本頁照片、手機方型小卡;標題只留「圖中穿搭」;位置由 pairs.json)
+/* MACACA 圖中穿搭 v0.8(2026-10-18 示意,未發布;三語;桌機正方形用本頁照片、手機方型小卡;一頁可多件;標題只留「圖中穿搭」;位置由 pairs.json)
  * 作用:商品頁在「加入購物車」按鈕下方,顯示照片裡搭配的另一件(上身頁顯示「圖中下身」、下身頁顯示「圖中上身」),點了跳到那件的商品頁。
  * 資料:pairs.json(GitHub Pages;示意版只有 非夏哲學美背bratop ↔ 非夏哲學瑜伽寬褲 同色 8 組;正式版每晚由共用照片比對+人工核對表產生)。
  * 安全:找不到預期元素就不動;JSON enabled=false 或 localStorage mcOutfitOff=1 即關閉;GTM 暫停=全站關閉。
@@ -32,10 +32,15 @@
       '.mc-outfit-cta{display:inline-block;font-size:14px;padding:10px 28px;border:1px solid #222;border-radius:4px;letter-spacing:.06em}' +
       '.mc-outfit-card:hover .mc-outfit-cta{background:#222;color:#fff}' +
       '.mc-outfit-soldout .mc-outfit-cta{border-color:#bbb;color:#999}' +
+      '.mc-outfit-multi .mc-outfit-cards{display:grid;gap:24px;grid-template-columns:repeat(2,minmax(0,1fr))}' +
+      '.mc-outfit-n3 .mc-outfit-cards{grid-template-columns:repeat(3,minmax(0,1fr))}' +
+      '.mc-outfit-n4 .mc-outfit-cards{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}' +
+      '.mc-outfit-multi .mc-outfit-title{font-size:16px}' +
       '.mc-outfit-badge{display:inline-block;font-size:11px;color:#b55;border:1px solid #e3b4b4;border-radius:3px;padding:0 5px;margin-left:6px;vertical-align:middle}' +
       // 手機(宏鈞 10/18):方型小卡——正方形縮圖在左(圖片置中裁切)、品名/顏色/價格在右、「看這件 ›」小字在右下;整張可點
       '@media (max-width:767px){' +
         '.mc-outfit{margin:20px 0 24px;text-align:left}' +
+        '.mc-outfit-multi .mc-outfit-cards{display:flex;flex-direction:column;gap:10px}' +
         '.mc-outfit-head{margin:0 0 8px}' +
         '.mc-outfit-card{display:flex;align-items:stretch;gap:12px;border:1px solid #e8e8e8;border-radius:8px;padding:10px;background:#fff}' +
         '.mc-outfit-img{flex:0 0 96px;width:96px;height:96px;aspect-ratio:auto;border-radius:6px}' +
@@ -62,30 +67,41 @@
     if (l.indexOf('ja') === 0) return 'ja';
     return 'zh-hant';
   }
-  function render(data, p) {
-    var it = p.item, L = lang(), T = I18N[L];
+  // 一頁可以有多件(宏鈞 10/18:EYE7383 照片裡有兩件上身都要顯示)。
+  // pairs.json 每筆可寫成舊格式 {item, photo} 或新格式 {items:[{item, photo}, ...]}。
+  function entries(p) {
+    if (p && p.items && p.items.length) return p.items.filter(function (e) { return e && e.item; });
+    return p && p.item ? [{ item: p.item, photo: p.photo }] : [];
+  }
+  function card(data, e, L, T) {
+    var it = e.item, ph = e.photo;
     var title = (it.title_i18n && it.title_i18n[L]) || it.title;
-    var roleLabel = it.role === 'top' ? T.top : T.bottom;
     var price = it.price_sale ? '<span class="mc-outfit-price">' + esc(it.price_sale) + '<s>' + esc(it.price) + '</s></span>' : '<span class="mc-outfit-price">' + esc(it.price) + '</span>';
-    var box = document.createElement('div');
-    box.className = 'mc-outfit' + (it.soldout ? ' mc-outfit-soldout' : '');
-    box.setAttribute(CFG.mark, '1'); box.setAttribute('lang', L);
-    // 版面(宏鈞 10/17):圖跟描述區的商品圖一樣寬(桌機 1000px、手機滿版),原比例不裁;品名/顏色/價格/按鈕在圖下方置中。桌機手機同一套。
-    // 宏鈞 10/18:標題只留「圖中穿搭」,不加「圖中下身/上身」
-    box.innerHTML = '<p class="mc-outfit-head">' + esc(T.head) + '</p>' +
-      '<a class="mc-outfit-card" href="' + esc(it.url) + '" data-mc-outfit-sku="' + esc(it.sku) + '">' +
-      // 宏鈞 10/18:桌機用「本商品頁」的照片(p.photo.media,正方形裁切,p.photo.pos 決定裁哪一段);沒指定就用對方商品封面。
-      //            手機維持方型小卡用對方商品封面(<picture> 依螢幕寬度切換)。
-      '<span class="mc-outfit-img"><picture>' +
+    var a = document.createElement('a');
+    a.className = 'mc-outfit-card' + (it.soldout ? ' mc-outfit-soldout' : '');
+    a.href = it.url; a.setAttribute('data-mc-outfit-sku', it.sku || '');
+    // 桌機:本商品頁的照片(ph.media)正方形裁切,ph.pos 決定裁哪一段;沒指定就用對方商品封面。手機:方型小卡用對方商品封面(<picture> 切換)。
+    a.innerHTML = '<span class="mc-outfit-img"><picture>' +
         '<source media="(max-width:767px)" srcset="' + img(data.mid, it.cover, '300x') + '">' +
-        '<img loading="lazy" alt="' + esc(title) + '" style="--mc-pos:' + esc((p.photo && p.photo.pos) || '50% 20%') + '"' +
-        ' src="' + img(data.mid, (p.photo && p.photo.media) || it.cover, '1200x') + '"></picture></span>' +
+        '<img loading="lazy" alt="' + esc(title) + '" style="--mc-pos:' + esc((ph && ph.pos) || '50% 20%') + '"' +
+        ' src="' + img(data.mid, (ph && ph.media) || it.cover, '1200x') + '"></picture></span>' +
       '<span class="mc-outfit-body"><span class="mc-outfit-title">' + esc(title) + (it.soldout ? '<span class="mc-outfit-badge">' + esc(T.sold) + '</span>' : '') + '</span>' +
       '<span class="mc-outfit-meta">' + esc(T.color) + esc(it.color) + '</span>' + price +
-      '<span class="mc-outfit-cta">' + esc(it.soldout ? T.ctaSold : T.cta) + '</span></span></a>';
-    box.querySelector('a').addEventListener('click', function () {
-      try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_outfit_click', outfit_from: pid(), outfit_to: it.id, outfit_sku: it.sku }); } catch (e) {}
+      '<span class="mc-outfit-cta">' + esc(it.soldout ? T.ctaSold : T.cta) + '</span></span>';
+    a.addEventListener('click', function () {
+      try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_outfit_click', outfit_from: pid(), outfit_to: it.id, outfit_sku: it.sku }); } catch (err) {}
     });
+    return a;
+  }
+  function render(data, p) {
+    var L = lang(), T = I18N[L], list = entries(p);
+    var box = document.createElement('div');
+    box.className = 'mc-outfit' + (list.length > 1 ? ' mc-outfit-multi mc-outfit-n' + Math.min(list.length, 4) : '');
+    box.setAttribute(CFG.mark, '1'); box.setAttribute('lang', L);
+    // 宏鈞 10/18:標題只留「圖中穿搭」
+    box.innerHTML = '<p class="mc-outfit-head">' + esc(T.head) + '</p><div class="mc-outfit-cards"></div>';
+    var wrap = box.querySelector('.mc-outfit-cards');
+    for (var i = 0; i < list.length && i < 4; i++) wrap.appendChild(card(data, list[i], L, T));
     return box;
   }
 
@@ -117,7 +133,7 @@
   function firstVisible(sel) { var els = document.querySelectorAll(sel); for (var i = 0; i < els.length; i++) if (!els[i].closest('.quick-cart') && els[i].offsetParent !== null) return els[i]; return null; }
   function place(data) {
     var p = data.pairs && data.pairs[pid()];
-    if (!p || !p.item) return true;                               // 這件沒有配對 → 不做事(回 true 表示不用再等)
+    if (!entries(p).length) return true;                           // 這件沒有配對 → 不做事(回 true 表示不用再等)
     if (document.querySelector('[' + CFG.mark + ']')) return true;
     var pos = window.__mcOutfitPos || data.position || 'origin';
     var box = render(data, p); box.setAttribute('data-mc-outfit-pos', pos);
@@ -145,7 +161,7 @@
         if (origin) origin.parentNode.insertBefore(box, origin); else desc.appendChild(box);
       }
     }
-    try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_outfit_shown', outfit_from: pid(), outfit_to: p.item.id, outfit_sku: p.item.sku }); } catch (e) {}
+    try { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'mc_outfit_shown', outfit_from: pid(), outfit_to: entries(p).map(function (e) { return e.item.id; }).join(','), outfit_sku: entries(p).map(function (e) { return e.item.sku; }).join(','), outfit_count: entries(p).length }); } catch (e) {}
     return true;
   }
 
