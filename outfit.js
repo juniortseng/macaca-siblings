@@ -1,4 +1,4 @@
-/* MACACA 圖中穿搭 v0.8.2(2026-10-18 示意,未發布;看這件不反白、滑過/按到字加粗約20%;三語;桌機正方形用本頁照片、手機方型小卡;一頁可多件;標題只留「圖中穿搭」;位置由 pairs.json)
+/* MACACA 圖中穿搭 v0.8.3(2026-10-18 示意;中文標題改「搭配穿搭」,未發布;看這件不反白、滑過/按到字加粗約20%;三語;桌機正方形用本頁照片、手機方型小卡;一頁可多件;標題只留一行;位置由 pairs.json)
  * 作用:商品頁在「加入購物車」按鈕下方,顯示照片裡搭配的另一件(上身頁顯示「圖中下身」、下身頁顯示「圖中上身」),點了跳到那件的商品頁。
  * 資料:pairs.json(GitHub Pages;示意版只有 非夏哲學美背bratop ↔ 非夏哲學瑜伽寬褲 同色 8 組;正式版每晚由共用照片比對+人工核對表產生)。
  * 安全:找不到預期元素就不動;JSON enabled=false 或 localStorage mcOutfitOff=1 即關閉;GTM 暫停=全站關閉。
@@ -58,7 +58,7 @@
 
   // 三語介面文字:跟著官網目前語言(html lang = zh-hant / en / ja)。品名用商品的 title_translations;顏色名官網英日版也是中文,照官網。
   var I18N = {
-    'zh-hant': { head: '圖中穿搭', bottom: '圖中下身', top: '圖中上身', color: '顏色:', cta: '看這件 ›', ctaSold: '看這件', sold: '售完' },
+    'zh-hant': { head: '搭配穿搭', bottom: '圖中下身', top: '圖中上身', color: '顏色:', cta: '看這件 ›', ctaSold: '看這件', sold: '售完' },
     'en':      { head: 'Shop the look', bottom: 'Bottom in this photo', top: 'Top in this photo', color: 'Color: ', cta: 'View ›', ctaSold: 'View', sold: 'Sold out' },
     'ja':      { head: '着用アイテム', bottom: '写真のボトムス', top: '写真のトップス', color: 'カラー：', cta: '詳細を見る ›', ctaSold: '詳細を見る', sold: '完売' }
   };
@@ -103,7 +103,7 @@
     var box = document.createElement('div');
     box.className = 'mc-outfit' + (list.length > 1 ? ' mc-outfit-multi mc-outfit-n' + Math.min(list.length, 4) : '');
     box.setAttribute(CFG.mark, '1'); box.setAttribute('lang', L);
-    // 宏鈞 10/18:標題只留「圖中穿搭」
+    // 宏鈞 10/18:標題只留一行(中文「搭配穿搭」,10/18 由「圖中穿搭」改)
     box.innerHTML = '<p class="mc-outfit-head">' + esc(T.head) + '</p><div class="mc-outfit-cards"></div>';
     var wrap = box.querySelector('.mc-outfit-cards');
     for (var i = 0; i < list.length && i < 4; i++) wrap.appendChild(card(data, list[i], L, T));
