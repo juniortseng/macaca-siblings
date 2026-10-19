@@ -1,4 +1,4 @@
-/* MACACA 同款不同色色票 v3(2026-10-16)
+/* MACACA 同款不同色色票 v3.1(2026-10-19:沒有規格的配件頁也建一列「顏色 : X」+ 色票)
  * 作用:商品分類頁/列表的卡片、商品頁的「顏色」列,補上同款其他顏色的色票;點了跳到那個顏色的商品頁。
  * 資料:siblings.json(每晚由 build_style_siblings.py 產生,放在 CFG.url;enabled=false 為總開關)。
  * 色票:①有「規格選項圖片」用它(新季) ②沒有但 colour_codes.json 有核准色碼 → 純色圓點(hex) ③都沒有 → 商品封面 60×60 縮圖。
@@ -112,7 +112,8 @@
     var k = data.by_id[pid];
     if (!k) return;
     var root = document.querySelector('[sl-component-begin="variation-selector"]');
-    if (!root || root.hasAttribute(CFG.mark) || root.closest('.quick-cart')) return;
+    if (!root) { decorateNoOption(data, k, pid); return; }
+    if (root.hasAttribute(CFG.mark) || root.closest('.quick-cart')) return;
     var sibs = data.styles[k] || [];
     var container = root.querySelector('.Variation-container');
     if (container && root.querySelector('.Variation-wrap')) {
@@ -132,6 +133,24 @@
     // 宏鈞 10/15 最終(GTM 版本 43):「➤ 更多顏色選擇」連結保留,不隱藏
   }
 
+  // 10/19:完全沒有規格的商品(配件,例 綿雲髮飾圈圈)頁面沒有選擇區 → 在購買區、數量上方自己建「顏色 : X」+ 色票列
+  function decorateNoOption(data, k, pid) {
+    var acts = document.querySelector('.ProductDetail-product-info .product-detail-actions');
+    if (!acts || acts.hasAttribute(CFG.mark) || acts.closest('.quick-cart')) return;
+    var sibs = data.styles[k] || [], self = null;
+    for (var i = 0; i < sibs.length; i++) if (sibs[i].id === pid) self = sibs[i];
+    acts.setAttribute(CFG.mark, '1');
+    var lang = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+    var wrap = document.createElement('div'); wrap.className = 'mc-sib-noopt';
+    var label = document.createElement('div'); label.className = 'variation_title mc-sib-label';
+    label.textContent = (lang.indexOf('ja') === 0 ? 'カラー' : lang.indexOf('en') === 0 ? 'Color' : '顏色') + ' : ' + ((self && self.color) || '');
+    var row = document.createElement('div'); row.className = 'Variation-container mc-sib-row';
+    for (var m = 0; m < sibs.length; m++) if (hasThumb(sibs[m])) row.appendChild(pdpItem(data.mid, sibs[m], sibs[m].id === pid));
+    wrap.appendChild(label); wrap.appendChild(row);
+    var anchor = acts.querySelector('.product-variation-dropdown') || acts.querySelector('.quantity');
+    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(wrap, anchor); else acts.insertBefore(wrap, acts.firstChild);
+  }
+
   function injectCSS() {
     var css = '.mc-sib-item{display:inline-block;cursor:pointer}' +
       // 純色圓點:列表卡沿用選項圖片的容器尺寸;商品頁沿用 .Variation-thumb 的尺寸;都加一圈淡邊讓淺色也看得到
@@ -141,6 +160,7 @@
       '.mc-sib-row.product-list-variant-selector-container{margin-top:6px}' +
       '.mc-sib-row .product-list-variant-selector-item{display:inline-block}' +
       '.mc-sib-row.Variation-container{margin:6px 0 10px}' +
+      '.mc-sib-noopt{margin:4px 0 12px}.mc-sib-noopt .mc-sib-label{font-size:13px;color:#999}' +
       // 舊季商品頁沒有圖片選項的 CSS,自己補(尺寸照新季原生:38px 外框、30px 圓圖)
       '.mc-sib-row .Variation-wrap{display:inline-block;width:38px;height:38px;position:relative;margin:0 2px 0 0;vertical-align:top}' +
       '.mc-sib-row .Variation-thumb{position:absolute;left:4px;top:4px;width:30px;height:30px;border-radius:50%;background-size:cover;background-position:center}' +
