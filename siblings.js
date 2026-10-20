@@ -1,4 +1,5 @@
-/* MACACA 同款不同色色票 v3.1(2026-10-19:沒有規格的配件頁也建一列「顏色 : X」+ 色票)
+/* MACACA 同款不同色色票 v3.2(2026-10-20:修 Mac 上商品頁色票列重複出現;舊版 Safari 改用 jpg;分類頁滑過色票時主圖與滑入圖一起換)
+ * v3.1(2026-10-19:沒有規格的配件頁也建一列「顏色 : X」+ 色票)
  * 作用:商品分類頁/列表的卡片、商品頁的「顏色」列,補上同款其他顏色的色票;點了跳到那個顏色的商品頁。
  * 資料:siblings.json(每晚由 build_style_siblings.py 產生,放在 CFG.url;enabled=false 為總開關)。
  * 色票:①有「規格選項圖片」用它(新季) ②沒有但 colour_codes.json 有核准色碼 → 純色圓點(hex) ③都沒有 → 商品封面 60×60 縮圖。
@@ -18,8 +19,10 @@
   if (window.__mcSiblingsLoaded) return;
   window.__mcSiblingsLoaded = true;
 
-  function thumb(mid, s) { var m = s.swatch || (!s.hex && s.cover); return m ? 'https://shoplineimg.com/' + mid + '/' + m + '/60x60.webp?source_format=jpg' : ''; }
-  function cover(mid, s) { return s.cover ? 'https://shoplineimg.com/' + mid + '/' + s.cover + '/750x.webp?source_format=jpg' : ''; }
+  // 10/20:SHOPLINE 對 Safari 15.6 以下給 jpg(mainConfig.webpSupported 不是 true),照它切換,否則舊 Mac 色票是空白
+  var EXT = (window.mainConfig && window.mainConfig.webpSupported !== true) ? '.jpg' : '.webp?source_format=jpg';
+  function thumb(mid, s) { var m = s.swatch || (!s.hex && s.cover); return m ? 'https://shoplineimg.com/' + mid + '/' + m + '/60x60' + EXT : ''; }
+  function cover(mid, s) { return s.cover ? 'https://shoplineimg.com/' + mid + '/' + s.cover + '/750x' + EXT : ''; }
   function esc(s) { return String(s || '').replace(/"/g, '&quot;'); }
   function hasThumb(s) { return !!(s.swatch || s.hex || s.cover); }
   function useDot(s) { return !s.swatch && !!s.hex; }   // 沒有選項圖片、但有核准色碼 → 純色圓點
@@ -67,22 +70,26 @@
     }
   }
   function appendSiblings(data, k, pid, scroll, tile, includeSelf) {
-    var mainImg = tile ? findMainImg(tile) : null;
+    var mains = tile ? findMainImgs(tile) : [];
     var sibs = data.styles[k] || [];
     for (var j = 0; j < sibs.length; j++) {
       var s = sibs[j];
       if (s.id === pid && !includeSelf) continue;
       if (!hasThumb(s)) continue;
       var a = plpItem(data.mid, s, s.id === pid);
-      if (s.id !== pid && mainImg && s.cover) bindHover(a, mainImg, cover(data.mid, s));
+      if (s.id !== pid && s.cover) for (var q = 0; q < mains.length; q++) bindHover(a, mains[q], cover(data.mid, s));
       scroll.appendChild(a);
     }
   }
-  function findMainImg(tile) {
-    var imgs = tile.querySelectorAll('img');
-    for (var i = 0; i < imgs.length; i++) if (imgs[i].clientWidth > 100) return imgs[i];
-    // SHOPLINE 舊版型用 background-image(.boxify-image)
-    return tile.querySelector('.boxify-image') || null;
+  // 10/20:卡片有兩張圖(主圖 + 滑鼠移入時蓋上來的第二張),只換主圖會被第二張蓋住 → 全部一起換
+  function findMainImgs(tile) {
+    var out = [], imgs = tile.querySelectorAll('img');
+    for (var i = 0; i < imgs.length; i++) if (imgs[i].clientWidth > 100) out.push(imgs[i]);
+    if (out.length) return out;
+    // SHOPLINE 版型用 background-image(.boxify-image)
+    var bx = tile.querySelectorAll('.boxify-image');
+    for (var j = 0; j < bx.length; j++) out.push(bx[j]);
+    return out;
   }
   function bindHover(a, el, src) {
     var isImg = el.tagName === 'IMG';
@@ -113,6 +120,11 @@
     if (!k) return;
     var root = document.querySelector('[sl-component-begin="variation-selector"]');
     if (!root) { decorateNoOption(data, k, pid); return; }
+    // 10/20:規格選單比較晚出現時,先前誤判成「沒有規格」補的那列要拿掉(Mac 上曾出現兩排色票)
+    var stray = document.querySelectorAll('.mc-sib-noopt');
+    for (var x = 0; x < stray.length; x++) stray[x].parentNode.removeChild(stray[x]);
+    var actsMarked = document.querySelectorAll('.product-detail-actions[' + CFG.mark + ']');
+    for (var y = 0; y < actsMarked.length; y++) actsMarked[y].removeAttribute(CFG.mark);
     if (root.hasAttribute(CFG.mark) || root.closest('.quick-cart')) return;
     var sibs = data.styles[k] || [];
     var container = root.querySelector('.Variation-container');
@@ -135,6 +147,8 @@
 
   // 10/19:完全沒有規格的商品(配件,例 綿雲髮飾圈圈)頁面沒有選擇區 → 在購買區、數量上方自己建「顏色 : X」+ 色票列
   function decorateNoOption(data, k, pid) {
+    // 10/20:等頁面完全載入 1.5 秒後才判斷「沒有規格」,避免規格選單還沒畫出來就誤判
+    if (!pageSettled) return;
     var acts = document.querySelector('.ProductDetail-product-info .product-detail-actions');
     if (!acts || acts.hasAttribute(CFG.mark) || acts.closest('.quick-cart')) return;
     var sibs = data.styles[k] || [], self = null;
@@ -172,10 +186,14 @@
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   }
 
+  var pageSettled = false, tickRef = null;
+  function settle() { setTimeout(function () { pageSettled = true; if (tickRef) tickRef(); }, 1500); }
+  if (document.readyState === 'complete') settle(); else window.addEventListener('load', settle);
+
   function run(data) {
     if (!data || data.enabled !== true || !data.by_id || !data.styles) return;
     injectCSS();
-    var tick = function () { try { decoratePLP(data); decoratePDP(data); } catch (e) { if (window.__mcSiblingsDebug) console.log('[mc-sib]', e); } };
+    var tick = tickRef = function () { try { decoratePLP(data); decoratePDP(data); } catch (e) { if (window.__mcSiblingsDebug) console.log('[mc-sib]', e); } };
     tick();
     var mo = new MutationObserver(function () { clearTimeout(mo._t); mo._t = setTimeout(tick, 150); });
     mo.observe(document.body, { childList: true, subtree: true });
