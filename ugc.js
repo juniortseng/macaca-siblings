@@ -1,17 +1,21 @@
-/* MACACA IG 穿搭牆 v0.5(2026-10-31 示意,未上線;要取代 Tagnology 的「相關產品上方」內容牆;v0.2/v0.3 照 Fable 兩輪審查修)
+/* MACACA IG 穿搭牆 v0.6(2026-10-31 示意,未上線;要取代 Tagnology 的「相關產品上方」內容牆;v0.2/v0.3 照 Fable 兩輪審查修)
  * 資安(v0.5,宏鈞 10/31 定):資料檔一律當成可能被竄改。每個欄位照真實格式檢查(SHOPLINE 編號=24 個 0–9/a–f),
  *   不合格的整則/整張略過,不會被放進頁面;連結只放本站 /products/ 與 instagram.com 貼文。
  * 作用:商品頁「您可能喜歡」上方,放跟這件有關的 IG 貼文(@macaca_official、@macaca_shops),點開看大圖和貼文裡的商品。
- * 資料:ugc/<商品id>.json(build_ugc.py 每天產;排序=標到本色 → 同系列其他色,新→舊,最多 12 則)。沒有檔的頁面不顯示。
- * 圖片(v0.4):存在 Google Drive,檔裡是 Drive 檔案 id;還沒上傳的是 IG 網址。Drive 圖先走 lh3,載不到改 Drive 縮圖網址再試一次。
+ * 資料:GitHub Pages macaca-ig-wall 的 ugc/<商品id>.json(build_ugc.py 每天產;排序=標到本色 → 同系列其他色,新→舊,最多 12 則)。沒有檔的頁面不顯示。
+ * 圖片(v0.6,宏鈞 10/31 從 Google Drive 改 GitHub):同一個 repo 的 i/<key>_600.webp(格子)、_1080.webp(點開);還沒存的是 IG 網址。
  * 量測:dataLayer mc_ugc_shown / mc_ugc_open / mc_ugc_product_click;連結不加 UTM(避免蓋掉原本的流量來源)。
  * 安全:找不到「您可能喜歡」就放商品描述區後面,兩個都找不到就不動;localStorage mcUgcOff=1 關閉。
  * 測試:window.__mcUgcData = {...} 直接塞資料不抓網路;window.__mcUgcHideTagnology = true 同頁隱藏 Tagnology 牆。
  */
 (function () {
   'use strict';
-  var CFG = { base: 'https://juniortseng.github.io/macaca-siblings/ugc/', mid: '5f893ca8281f94002455640b', mark: 'data-mc-ugc' };
-  if (!/macaca\.com\.tw$/.test(location.hostname)) return;
+  var CFG = { base: 'https://juniortseng.github.io/macaca-ig-wall/ugc/', img: 'https://juniortseng.github.io/macaca-ig-wall/i/',
+    mid: '5f893ca8281f94002455640b', mark: 'data-mc-ugc' };
+  // 只在官網跑;管理畫面的預覽(本機 127.0.0.1)要先設 __mcUgcPreview,圖讀本機還沒推上去的檔
+  var PREVIEW = window.__mcUgcPreview === true && /^(127\.0\.0\.1|localhost)$/.test(location.hostname);
+  if (!/macaca\.com\.tw$/.test(location.hostname) && !PREVIEW) return;
+  if (PREVIEW) CFG.img = '/i/';
   try { if (localStorage.getItem('mcUgcOff') === '1') return; } catch (e) {}
   if (window.__mcUgcLoaded) return;
   window.__mcUgcLoaded = true;
@@ -21,8 +25,8 @@
   // 欄位格式(10/31 對過全部 1,395 頁的真實資料);商品網址有中文品名,舊瀏覽器不支援 \p{L} 就只收英數
   var OK = {
     sl: /^[0-9a-f]{24}$/,                                            // SHOPLINE 商品/商品圖編號
-    drive: /^[A-Za-z0-9_-]{20,80}$/,                                 // Google Drive 檔案 id(大小寫英數與 - _)
-    igImg: /^https:\/\/[a-z0-9.-]+\.cdninstagram\.com\/[^\s"'<>\\]*$/,  // 還沒存到 Drive 的 IG 圖
+    imgKey: /^\d{5,25}$/,                                            // 存在圖片 repo 的圖(IG 貼文/子圖 id,純數字)
+    igImg: /^https:\/\/[a-z0-9.-]+\.cdninstagram\.com\/[^\s"'<>\\]*$/,  // 還沒存進圖片 repo 的 IG 圖
     igPost: /^https:\/\/www\.instagram\.com\/(p|reel|tv)\/[A-Za-z0-9_-]+\/?$/,
     sku: /^[A-Za-z0-9-]{4,20}$/,
     acct: /^[A-Za-z0-9._]{1,30}$/,
@@ -42,7 +46,7 @@
       url: c.url, stock: !!c.stock, series: txt(c.series, 80), colors: Math.floor(num(c.colors)), named: !!c.named,
       named_codes: list(c.named_codes, 10).filter(function (x) { return str(x, OK.sku); }) };
   }
-  function cleanImg(x) { return str(x, OK.drive) || str(x, OK.igImg); }
+  function cleanImg(x) { return str(x, OK.imgKey) || str(x, OK.igImg); }
   function clean(d) {
     if (!d || !Array.isArray(d.posts)) return null;
     var posts = [];
@@ -55,29 +59,45 @@
         imgs: list(p.imgs, 6).map(cleanImg).filter(Boolean),
         cap: txt(p.cap, 200), products: products, match: p.match === 'color' ? 'color' : 'series' });
     });
-    return { series: txt(d.series, 80), self: cleanCard(d.self), posts: posts };
+    return { series: txt(d.series, 80), self: cleanCard(d.self), posts: posts, cfg: cleanCfg(d.cfg) };
   }
   window.__mcUgcClean = clean;   // 測試用(純函式,不碰頁面)
 
   function img(m, size) { return OK.sl.test(m || '') ? 'https://shoplineimg.com/' + CFG.mid + '/' + m + '/' + (size || '200x') + '.webp?source_format=jpg' : ''; }
-  var LH3 = 'https://lh3.googleusercontent.com/d/';
-  function pic(x, w) { return OK.drive.test(x || '') ? LH3 + x + '=w' + w : str(x, OK.igImg); }
-  function retry(im) {   // lh3 載不到 → 同一張改走 Drive 縮圖網址(會轉址到 lh3,慢一點但比較穩);已換過就回 false
-    var s = im.getAttribute('src') || '';
-    if (s.indexOf(LH3) !== 0) return false;
-    var a = s.slice(LH3.length).split('=w');
-    im.src = 'https://drive.google.com/thumbnail?id=' + a[0] + '&sz=w' + (a[1] || 600);
-    return true;
-  }
+  // 圖片 repo 只有 600 與 1080 兩種寬度
+  function pic(x, w) { return OK.imgKey.test(x || '') ? CFG.img + x + '_' + (w > 600 ? 1080 : 600) + '.webp' : str(x, OK.igImg); }
   function pid() { try { return window.mainConfig.trackerEventData['Product ID'] || ''; } catch (e) { return ''; } }
   function price(n) { return n ? 'NT$' + Number(n).toLocaleString('en-US') : ''; }
   function push(o) { try { window.dataLayer = window.dataLayer || []; window.dataLayer.push(o); } catch (e) {} }
 
-  function injectCSS() {
-    var css = '.mc-ugc{max-width:1000px;margin:24px auto 40px;padding:0 0 4px}' +
+  // 版面設定(管理畫面存的,build_ugc.py 放進每頁資料的 cfg);每一項只收清單裡的值,其他一律用預設
+  var DEF = { pos: 'above_related', layout: 'grid', cols: 4, rows: 2, size: 'M', max: 12, media: 'all', title: 'IG 穿搭分享' };
+  var ALLOW = {
+    pos: ['above_related', 'before_info', 'after_description', 'buybox'],   // 您可能喜歡上方/商品描述上方/商品描述之後/加入購物車下方
+    layout: ['grid', 'row'],                                                // 桌機:格子(看更多)/一排橫滑
+    cols: [3, 4, 5], rows: [1, 2, 3], size: ['S', 'M', 'L'], max: [4, 6, 8, 12],
+    media: ['all', 'image', 'video']                                        // 全部/只放圖片/只放影片
+  };
+  function cleanCfg(c) {
+    var o = {};
+    c = c && typeof c === 'object' ? c : {};
+    Object.keys(ALLOW).forEach(function (k) { o[k] = ALLOW[k].indexOf(c[k]) >= 0 ? c[k] : DEF[k]; });
+    o.title = txt(c.title, 20) || DEF.title;
+    return o;
+  }
+  var SIZE = { S: { w: 760, m: 34 }, M: { w: 1000, m: 42 }, L: { w: 1200, m: 62 } };   // 桌機最大寬度 px、手機每格占螢幕 %
+
+  function injectCSS(cfg) {
+    var sz = SIZE[cfg.size], row = cfg.layout === 'row';
+    var css = '.mc-ugc{max-width:' + sz.w + 'px;margin:24px auto 40px;padding:0 0 4px}' +
+      // 放在右欄購買區(桌機約 430px 寬)時跟著欄寬、固定 2 欄
+      '.ProductDetail-product-info .mc-ugc{max-width:100%;margin:20px 0}' +
+      '.ProductDetail-product-info .mc-ugc-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-columns:calc((100% - 12px) / 2)}' +
       '.mc-ugc-head{font-size:12px;letter-spacing:.14em;color:#888;text-align:center;margin:0 0 14px}' +
       // minmax(0,…) 與 min-width:0:品名不換行,不加的話長品名會把那一格撐寬(手機橫滑每格大小不一)
-      '.mc-ugc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}' +
+      (row
+        ? '.mc-ugc-grid{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - ' + (cfg.cols - 1) * 12 + 'px) / ' + cfg.cols + ');gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin}.mc-ugc-tile{scroll-snap-align:start}'
+        : '.mc-ugc-grid{display:grid;grid-template-columns:repeat(' + cfg.cols + ',minmax(0,1fr));gap:12px}') +
       '.mc-ugc-tile{display:block;min-width:0;text-align:left;cursor:pointer;background:none;border:0;padding:0;font:inherit;color:#222}' +
       '.mc-ugc-tile:focus{outline:none}.mc-ugc-tile:focus-visible .mc-ugc-ph{outline:2px solid #ce715e;outline-offset:2px}' +
       '.mc-ugc-ph{position:relative;display:block;aspect-ratio:4/5;background:#f3f3f3;border-radius:8px;overflow:hidden}' +
@@ -113,7 +133,7 @@
       '.mc-ugc{margin:20px 0 32px}' +
       '.mc-ugc-grid{display:flex;overflow-x:auto;gap:10px;padding:0 15px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}' +
       '.mc-ugc-grid::-webkit-scrollbar{display:none}' +
-      '.mc-ugc-tile{flex:0 0 42%;scroll-snap-align:start}' +
+      '.mc-ugc-tile{flex:0 0 ' + sz.m + '%;scroll-snap-align:start}' +
       '.mc-ugc-more{display:none}' +
       '.mc-ugc-box{flex-direction:column;width:100vw;max-height:100vh;height:100%;border-radius:0}' +
       // 手機:大圖矮一點、貼文文字只留 3 行,「貼文中的商品」才會在第一個畫面裡
@@ -171,7 +191,7 @@
     var big = m.querySelector('.mc-ugc-box-ph img');
     var note = Object.assign(document.createElement('p'), { textContent: '圖片暫時無法顯示,請到 Instagram 看這則', style: 'display:none;color:#ccc;font-size:13px;padding:40px 20px;text-align:center' });
     big.parentNode.insertBefore(note, big);
-    big.onerror = function () { if (!retry(big)) { big.style.display = 'none'; note.style.display = 'block'; } };
+    big.onerror = function () { big.style.display = 'none'; note.style.display = 'block'; };
     big.onload = function () { big.style.display = ''; note.style.display = 'none'; };
     // 鎖背景捲動:iOS Safari 只鎖 overflow 擋不住,要把 body 固定住、關窗再捲回原位
     var y = window.pageYOffset, bs = document.body.style, prev = [bs.position, bs.top, bs.width];
@@ -201,26 +221,44 @@
     push({ event: 'mc_ugc_open', ugc_from: pid(), ugc_post: p.id, ugc_acct: p.acct, ugc_match: p.match });
   }
 
-  function anchor() {
-    var rel = document.querySelector('.ProductDetail-relatedProducts');
-    if (rel) return { el: rel, before: true };
-    var info = document.querySelector('.ProductDetail-additionalInfo');
-    return info ? { el: info, before: false } : null;
+  // 位置(10/31 看過商品頁:桌機右欄是 .ProductDetail-product-info,下面依序是商品描述、Tagnology、您可能喜歡);
+  // 選的位置找不到就退回「您可能喜歡」上方,再找不到就放商品描述區後面,都找不到就不動
+  function anchor(pos) {
+    function q(s) { return document.querySelector(s); }
+    var at = {
+      above_related: function () { var e = q('.ProductDetail-relatedProducts'); return e && { el: e, how: 'before' }; },
+      before_info: function () { var e = q('.ProductDetail-additionalInfo'); return e && { el: e, how: 'before' }; },
+      after_description: function () { var e = q('.ProductDetail-description'); return e && { el: e, how: 'after' }; },
+      buybox: function () { var e = q('.ProductDetail-product-info'); return e && { el: e, how: 'append' }; }
+    };
+    var info = q('.ProductDetail-additionalInfo');
+    return at[pos]() || at.above_related() || (info && { el: info, how: 'after' }) || null;
+  }
+  function insert(box, a) {
+    if (a.how === 'append') a.el.appendChild(box);
+    else a.el.parentNode.insertBefore(box, a.how === 'before' ? a.el : a.el.nextSibling);
   }
 
   function place(data) {
     if (document.querySelector('[' + CFG.mark + ']')) return true;
-    var a = anchor();
+    var cfg = data.cfg;
+    var a = anchor(cfg.pos);
     if (!a) return false;
-    var posts = data.posts.filter(function (p) { return p.img && p.products && p.products.length; });
+    var posts = data.posts.filter(function (p) {
+      if (!p.img || !p.products || !p.products.length) return false;
+      if (cfg.media === 'video') return p.type === 'VIDEO';
+      if (cfg.media === 'image') return p.type !== 'VIDEO';
+      return true;
+    }).slice(0, cfg.max);
     if (!posts.length) return true;
     var box = document.createElement('div');
     box.className = 'mc-ugc';
     box.setAttribute(CFG.mark, '1');
-    // 手機是橫滑,全部放;桌機先放兩排,其餘按「看更多」
+    // 手機與「一排橫滑」全部放;桌機格子先放「欄數×排數」,其餘按「看更多」
     var mobile = window.matchMedia && window.matchMedia('(max-width:767px)').matches;
-    var shown = mobile ? posts.length : Math.min(posts.length, 8);
-    box.innerHTML = '<p class="mc-ugc-head">IG 穿搭分享</p><div class="mc-ugc-grid">' +
+    var cols = a.how === 'append' ? 2 : cfg.cols;
+    var shown = mobile || cfg.layout === 'row' ? posts.length : Math.min(posts.length, cols * cfg.rows);
+    box.innerHTML = '<p class="mc-ugc-head">' + esc(cfg.title) + '</p><div class="mc-ugc-grid">' +
       posts.slice(0, shown).map(tileHTML).join('') + '</div>' +
       (posts.length > shown ? '<button type="button" class="mc-ugc-more">看更多</button>' : '');
     box.addEventListener('click', function (e) {
@@ -238,7 +276,6 @@
       var im = e.target;
       if (!im || im.tagName !== 'IMG') return;
       if (im.classList.contains('mc-ugc-main')) {
-        if (retry(im)) return;
         var tile = im.closest('.mc-ugc-tile');
         if (tile) tile.remove();
         if (!box.querySelector('.mc-ugc-tile')) box.remove();
@@ -246,7 +283,7 @@
         im.style.visibility = 'hidden';
       }
     }, true);
-    a.el.parentNode.insertBefore(box, a.before ? a.el : a.el.nextSibling);
+    insert(box, a);
     if (window.__mcUgcHideTagnology) {
       var tg = document.querySelector('.embed-tagnology');
       if (tg) tg.style.display = 'none';
@@ -260,7 +297,7 @@
     if (!data || !data.posts.length) return;
     SERIES = data.series || '';
     SELF = data.self || null;
-    injectCSS();
+    injectCSS(data.cfg);
     if (place(data)) return;
     var mo = new MutationObserver(function () { if (place(data)) mo.disconnect(); });
     mo.observe(document.body, { childList: true, subtree: true });
