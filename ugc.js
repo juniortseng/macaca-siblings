@@ -71,7 +71,7 @@
   function push(o) { try { window.dataLayer = window.dataLayer || []; window.dataLayer.push(o); } catch (e) {} }
 
   // 版面設定(管理畫面存的,build_ugc.py 放進每頁資料的 cfg);每一項只收清單裡的值,其他一律用預設
-  var DEF = { pos: 'above_related', layout: 'grid', cols: 4, rows: 2, size: 'M', max: 12, media: 'all', title: 'IG 穿搭分享' };
+  var DEF = { pos: 'above_related', layout: 'grid', cols: 4, rows: 2, size: 'M', max: 12, media: 'all', title: '穿搭分享' };
   var ALLOW = {
     pos: ['above_related', 'before_info', 'after_description', 'buybox'],   // 您可能喜歡上方/商品描述上方/商品描述之後/加入購物車下方
     layout: ['grid', 'row'],                                                // 桌機:格子(看更多)/一排橫滑
