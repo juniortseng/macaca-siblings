@@ -82,7 +82,7 @@
     var o = {};
     c = c && typeof c === 'object' ? c : {};
     Object.keys(ALLOW).forEach(function (k) { o[k] = ALLOW[k].indexOf(c[k]) >= 0 ? c[k] : DEF[k]; });
-    o.title = txt(c.title, 20) || DEF.title;
+    o.title = txt(c.title, 200).trim().slice(0, 20) || DEF.title;   // 跟 wall_settings.py 一樣:先去頭尾空白再取 20 字
     return o;
   }
   var SIZE = { S: { w: 760, m: 34 }, M: { w: 1000, m: 42 }, L: { w: 1200, m: 62 } };   // 桌機最大寬度 px、手機每格占螢幕 %
@@ -261,6 +261,14 @@
     box.innerHTML = '<p class="mc-ugc-head">' + esc(cfg.title) + '</p><div class="mc-ugc-grid">' +
       posts.slice(0, shown).map(tileHTML).join('') + '</div>' +
       (posts.length > shown ? '<button type="button" class="mc-ugc-more">看更多</button>' : '');
+    // 桌機貼文比一排的格數少:格子維持原本寬度、置中(不然只有 1 則時會撐滿或靠左,像壞掉)
+    if (!mobile && posts.length < cols) {
+      var g = box.querySelector('.mc-ugc-grid');
+      var w = 'calc((100% - ' + (cols - 1) * 12 + 'px) / ' + cols + ')';
+      if (cfg.layout === 'row') g.style.gridAutoColumns = w;
+      else g.style.gridTemplateColumns = 'repeat(' + posts.length + ',' + w + ')';
+      g.style.justifyContent = 'center';
+    }
     box.addEventListener('click', function (e) {
       if (e.target.closest('.mc-ugc-more')) {
         var grid = box.querySelector('.mc-ugc-grid');
