@@ -1,4 +1,6 @@
-/* MACACA IG 穿搭牆 v0.4(2026-10-31 示意,未上線;要取代 Tagnology 的「相關產品上方」內容牆;v0.2/v0.3 照 Fable 兩輪審查修)
+/* MACACA IG 穿搭牆 v0.5(2026-10-31 示意,未上線;要取代 Tagnology 的「相關產品上方」內容牆;v0.2/v0.3 照 Fable 兩輪審查修)
+ * 資安(v0.5,宏鈞 10/31 定):資料檔一律當成可能被竄改。每個欄位照真實格式檢查(SHOPLINE 編號=24 個 0–9/a–f),
+ *   不合格的整則/整張略過,不會被放進頁面;連結只放本站 /products/ 與 instagram.com 貼文。
  * 作用:商品頁「您可能喜歡」上方,放跟這件有關的 IG 貼文(@macaca_official、@macaca_shops),點開看大圖和貼文裡的商品。
  * 資料:ugc/<商品id>.json(build_ugc.py 每天產;排序=標到本色 → 同系列其他色,新→舊,最多 12 則)。沒有檔的頁面不顯示。
  * 圖片(v0.4):存在 Google Drive,檔裡是 Drive 檔案 id;還沒上傳的是 IG 網址。Drive 圖先走 lh3,載不到改 Drive 縮圖網址再試一次。
@@ -14,10 +16,49 @@
   if (window.__mcUgcLoaded) return;
   window.__mcUgcLoaded = true;
 
-  function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
-  function img(m, size) { return m ? 'https://shoplineimg.com/' + CFG.mid + '/' + m + '/' + (size || '200x') + '.webp?source_format=jpg' : ''; }
+  function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+  // 欄位格式(10/31 對過全部 1,395 頁的真實資料);商品網址有中文品名,舊瀏覽器不支援 \p{L} 就只收英數
+  var OK = {
+    sl: /^[0-9a-f]{24}$/,                                            // SHOPLINE 商品/商品圖編號
+    drive: /^[A-Za-z0-9_-]{20,80}$/,                                 // Google Drive 檔案 id(大小寫英數與 - _)
+    igImg: /^https:\/\/[a-z0-9.-]+\.cdninstagram\.com\/[^\s"'<>\\]*$/,  // 還沒存到 Drive 的 IG 圖
+    igPost: /^https:\/\/www\.instagram\.com\/(p|reel|tv)\/[A-Za-z0-9_-]+\/?$/,
+    sku: /^[A-Za-z0-9-]{4,20}$/,
+    acct: /^[A-Za-z0-9._]{1,30}$/,
+    postId: /^\d{5,25}$/,
+    type: /^(IMAGE|VIDEO|CAROUSEL_ALBUM)$/
+  };
+  try { OK.path = new RegExp('^/products/[\\p{L}\\p{N}_-]+$', 'u'); } catch (e) { OK.path = /^\/products\/[A-Za-z0-9_-]+$/; }
+  function str(v, re) { return typeof v === 'string' && re.test(v) ? v : ''; }
+  function num(v) { return typeof v === 'number' && isFinite(v) && v >= 0 ? v : 0; }
+  function cleanCard(c) {
+    // 款號可以是空的(「療癒瑜伽流」這類商品後台沒填),有填就要合格式
+    if (!c || !str(c.url, OK.path) || (c.code !== '' && !str(c.code, OK.sku))) return null;
+    return { code: c.code, name: String(c.name || ''), color: String(c.color || ''), price: num(c.price), img: str(c.img, OK.sl),
+      url: c.url, stock: !!c.stock, series: String(c.series || ''), colors: Math.floor(num(c.colors)), named: !!c.named,
+      named_codes: (Array.isArray(c.named_codes) ? c.named_codes : []).filter(function (x) { return str(x, OK.sku); }) };
+  }
+  function cleanImg(x) { return str(x, OK.drive) || str(x, OK.igImg); }
+  function clean(d) {
+    if (!d || !Array.isArray(d.posts)) return null;
+    var posts = [];
+    d.posts.forEach(function (p) {
+      if (!p || !str(p.id, OK.postId) || !str(p.acct, OK.acct) || !str(p.url, OK.igPost) || !str(p.type, OK.type)) return;
+      var main = cleanImg(p.img);
+      var products = (Array.isArray(p.products) ? p.products : []).map(cleanCard).filter(Boolean);
+      if (!main || !products.length) return;
+      posts.push({ id: p.id, acct: p.acct, url: p.url, type: p.type, img: main,
+        imgs: (Array.isArray(p.imgs) ? p.imgs : []).map(cleanImg).filter(Boolean),
+        cap: String(p.cap || ''), products: products, match: p.match === 'color' ? 'color' : 'series' });
+    });
+    return { series: String(d.series || ''), self: cleanCard(d.self), posts: posts };
+  }
+  window.__mcUgcClean = clean;   // 測試用(純函式,不碰頁面)
+
+  function img(m, size) { return OK.sl.test(m || '') ? 'https://shoplineimg.com/' + CFG.mid + '/' + m + '/' + (size || '200x') + '.webp?source_format=jpg' : ''; }
   var LH3 = 'https://lh3.googleusercontent.com/d/';
-  function pic(x, w) { return /^https?:/.test(x || '') ? x : LH3 + x + '=w' + w; }
+  function pic(x, w) { return OK.drive.test(x || '') ? LH3 + x + '=w' + w : str(x, OK.igImg); }
   function retry(im) {   // lh3 載不到 → 同一張改走 Drive 縮圖網址(會轉址到 lh3,慢一點但比較穩);已換過就回 false
     var s = im.getAttribute('src') || '';
     if (s.indexOf(LH3) !== 0) return false;
@@ -211,8 +252,9 @@
     return true;
   }
 
-  function run(data) {
-    if (!data || !data.posts) return;
+  function run(raw) {
+    var data = clean(raw);
+    if (!data || !data.posts.length) return;
     SERIES = data.series || '';
     SELF = data.self || null;
     injectCSS();
@@ -226,7 +268,7 @@
     var data = window.__mcUgcData;
     if (data) return run(data);
     var id = pid();
-    if (!id) return;
+    if (!OK.sl.test(id)) return;
     fetch(CFG.base + id + '.json', { cache: 'default', credentials: 'omit' }).then(function (r) { return r.ok ? r.json() : null; }).then(run).catch(function () {});
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
