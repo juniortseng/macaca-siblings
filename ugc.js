@@ -32,8 +32,9 @@
   function injectCSS() {
     var css = '.mc-ugc{max-width:1000px;margin:24px auto 40px;padding:0 0 4px}' +
       '.mc-ugc-head{font-size:12px;letter-spacing:.14em;color:#888;text-align:center;margin:0 0 14px}' +
-      '.mc-ugc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}' +
-      '.mc-ugc-tile{display:block;text-align:left;cursor:pointer;background:none;border:0;padding:0;font:inherit;color:#222}' +
+      // minmax(0,…) 與 min-width:0:品名不換行,不加的話長品名會把那一格撐寬(手機橫滑每格大小不一)
+      '.mc-ugc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}' +
+      '.mc-ugc-tile{display:block;min-width:0;text-align:left;cursor:pointer;background:none;border:0;padding:0;font:inherit;color:#222}' +
       '.mc-ugc-tile:focus{outline:none}.mc-ugc-tile:focus-visible .mc-ugc-ph{outline:2px solid #ce715e;outline-offset:2px}' +
       '.mc-ugc-ph{position:relative;display:block;aspect-ratio:4/5;background:#f3f3f3;border-radius:8px;overflow:hidden}' +
       '.mc-ugc-ph img{width:100%;height:100%;object-fit:cover;display:block}' +
@@ -42,6 +43,7 @@
       '.mc-ugc-play:after{content:"";position:absolute;left:8px;top:6px;border-left:8px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent}' +
       '.mc-ugc-prod{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;line-height:1.35}' +
       '.mc-ugc-prod img{width:36px;height:36px;object-fit:cover;border-radius:4px;flex:none;background:#f3f3f3}' +
+      '.mc-ugc-prod>span{flex:1;min-width:0}' +
       '.mc-ugc-prod span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
       '.mc-ugc-prod b{font-weight:600}' +
       '.mc-ugc-more{display:block;margin:16px auto 0;background:none;border:1px solid #ccc;border-radius:4px;padding:8px 22px;font:inherit;font-size:13px;color:#555;cursor:pointer}' +
