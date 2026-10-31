@@ -32,27 +32,30 @@
   try { OK.path = new RegExp('^/products/[\\p{L}\\p{N}_-]+$', 'u'); } catch (e) { OK.path = /^\/products\/[A-Za-z0-9_-]+$/; }
   function str(v, re) { return typeof v === 'string' && re.test(v) ? v : ''; }
   function num(v) { return typeof v === 'number' && isFinite(v) && v >= 0 ? v : 0; }
+  // 文字只收字串、限長度(不是字串的值用 String() 轉可能直接丟錯,整面牆就不見)
+  function txt(v, n) { return typeof v === 'string' ? v.slice(0, n) : ''; }
+  function list(v, n) { return Array.isArray(v) ? v.slice(0, n) : []; }
   function cleanCard(c) {
     // 款號可以是空的(「療癒瑜伽流」這類商品後台沒填),有填就要合格式
     if (!c || !str(c.url, OK.path) || (c.code !== '' && !str(c.code, OK.sku))) return null;
-    return { code: c.code, name: String(c.name || ''), color: String(c.color || ''), price: num(c.price), img: str(c.img, OK.sl),
-      url: c.url, stock: !!c.stock, series: String(c.series || ''), colors: Math.floor(num(c.colors)), named: !!c.named,
-      named_codes: (Array.isArray(c.named_codes) ? c.named_codes : []).filter(function (x) { return str(x, OK.sku); }) };
+    return { code: c.code, name: txt(c.name, 80), color: txt(c.color, 30), price: num(c.price), img: str(c.img, OK.sl),
+      url: c.url, stock: !!c.stock, series: txt(c.series, 80), colors: Math.floor(num(c.colors)), named: !!c.named,
+      named_codes: list(c.named_codes, 10).filter(function (x) { return str(x, OK.sku); }) };
   }
   function cleanImg(x) { return str(x, OK.drive) || str(x, OK.igImg); }
   function clean(d) {
     if (!d || !Array.isArray(d.posts)) return null;
     var posts = [];
-    d.posts.forEach(function (p) {
+    list(d.posts, 12).forEach(function (p) {   // 數量上限照 build_ugc.py:每頁 12 則、輪播 6 張、每則 6 款
       if (!p || !str(p.id, OK.postId) || !str(p.acct, OK.acct) || !str(p.url, OK.igPost) || !str(p.type, OK.type)) return;
       var main = cleanImg(p.img);
-      var products = (Array.isArray(p.products) ? p.products : []).map(cleanCard).filter(Boolean);
+      var products = list(p.products, 6).map(cleanCard).filter(Boolean);
       if (!main || !products.length) return;
       posts.push({ id: p.id, acct: p.acct, url: p.url, type: p.type, img: main,
-        imgs: (Array.isArray(p.imgs) ? p.imgs : []).map(cleanImg).filter(Boolean),
-        cap: String(p.cap || ''), products: products, match: p.match === 'color' ? 'color' : 'series' });
+        imgs: list(p.imgs, 6).map(cleanImg).filter(Boolean),
+        cap: txt(p.cap, 200), products: products, match: p.match === 'color' ? 'color' : 'series' });
     });
-    return { series: String(d.series || ''), self: cleanCard(d.self), posts: posts };
+    return { series: txt(d.series, 80), self: cleanCard(d.self), posts: posts };
   }
   window.__mcUgcClean = clean;   // 測試用(純函式,不碰頁面)
 
