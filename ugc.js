@@ -106,9 +106,12 @@
     var at = 0;
     var list = p.products.filter(function (c) { return c.series === SERIES; }).map(card).concat(p.products.filter(function (c) { return c.series !== SERIES; }));
     var items = list.map(function (c) {
+      // 貼文沒寫明顏色的別款,卡片連的是有貨的第一色,不一定是照片那色 → 不寫色名,只寫共幾色
+      var vague = !c.named && c.colors > 1 && !(SELF && c.code === SELF.code);
+      var sub = (vague ? '' : c.color) + (c.colors > 1 ? (vague ? '' : '・') + '共 ' + c.colors + ' 色' : '') + (c.stock ? '' : '・售完');
       return '<a class="mc-ugc-item" href="' + esc(c.url) + '" data-sku="' + esc(c.code) + '">' +
         '<img alt="" src="' + esc(img(c.img, '200x')) + '"><span class="mc-ugc-item-t"><span>' + esc(c.name) + '</span>' +
-        '<span class="mc-ugc-sold">' + esc(c.color) + (c.colors > 1 ? '・共 ' + c.colors + ' 色' : '') + (c.stock ? '' : '・售完') + '</span><span><b>' + esc(price(c.price)) + '</b></span></span>' +
+        '<span class="mc-ugc-sold">' + esc(sub) + '</span><span><b>' + esc(price(c.price)) + '</b></span></span>' +
         '<span class="mc-ugc-item-go">看商品 ›</span></a>';
     }).join('');
     var m = document.createElement('div');
