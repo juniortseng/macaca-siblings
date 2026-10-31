@@ -1,9 +1,10 @@
-/* MACACA IG 穿搭牆 v0.6(2026-10-31 示意,未上線;要取代 Tagnology 的「相關產品上方」內容牆;v0.2/v0.3 照 Fable 兩輪審查修)
+/* MACACA IG 穿搭牆 v0.7(2026-10-31 示意,未上線;要取代 Tagnology 的「相關產品上方」內容牆;v0.2/v0.3 照 Fable 兩輪審查修)
  * 資安(v0.5,宏鈞 10/31 定):資料檔一律當成可能被竄改。每個欄位照真實格式檢查(SHOPLINE 編號=24 個 0–9/a–f),
  *   不合格的整則/整張略過,不會被放進頁面;連結只放本站 /products/ 與 instagram.com 貼文。
  * 作用:商品頁「您可能喜歡」上方,放跟這件有關的 IG 貼文(@macaca_official、@macaca_shops),點開看大圖和貼文裡的商品。
  * 資料:GitHub Pages macaca-ig-wall 的 ugc/<商品id>.json(build_ugc.py 每天產;排序=標到本色 → 同系列其他色,新→舊,最多 12 則)。沒有檔的頁面不顯示。
  * 圖片(v0.6,宏鈞 10/31 從 Google Drive 改 GitHub):同一個 repo 的 i/<key>_600.webp(格子)、_1080.webp(點開);還沒存的是 IG 網址。
+ * 影片(v0.7,宏鈞 10/31:點了要直接看,不要再去 IG):同 repo 的 v/<貼文id>.mp4,點開靜音自動播放;Meta 不給檔的(版權配樂)預設不上牆。
  * 量測:dataLayer mc_ugc_shown / mc_ugc_open / mc_ugc_product_click;連結不加 UTM(避免蓋掉原本的流量來源)。
  * 安全:找不到「您可能喜歡」就放商品描述區後面,兩個都找不到就不動;localStorage mcUgcOff=1 關閉。
  * 測試:window.__mcUgcData = {...} 直接塞資料不抓網路;window.__mcUgcHideTagnology = true 同頁隱藏 Tagnology 牆。
@@ -11,11 +12,11 @@
 (function () {
   'use strict';
   var CFG = { base: 'https://juniortseng.github.io/macaca-ig-wall/ugc/', img: 'https://juniortseng.github.io/macaca-ig-wall/i/',
-    mid: '5f893ca8281f94002455640b', mark: 'data-mc-ugc' };
-  // 只在官網跑;管理畫面的預覽(本機 127.0.0.1)要先設 __mcUgcPreview,圖讀本機還沒推上去的檔
+    vid: 'https://juniortseng.github.io/macaca-ig-wall/v/', mid: '5f893ca8281f94002455640b', mark: 'data-mc-ugc' };
+  // 只在官網跑;管理畫面的預覽(本機 127.0.0.1)要先設 __mcUgcPreview,圖和影片讀本機還沒推上去的檔
   var PREVIEW = window.__mcUgcPreview === true && /^(127\.0\.0\.1|localhost)$/.test(location.hostname);
   if (!/macaca\.com\.tw$/.test(location.hostname) && !PREVIEW) return;
-  if (PREVIEW) CFG.img = '/i/';
+  if (PREVIEW) { CFG.img = '/i/'; CFG.vid = '/v/'; }
   try { if (localStorage.getItem('mcUgcOff') === '1') return; } catch (e) {}
   if (window.__mcUgcLoaded) return;
   window.__mcUgcLoaded = true;
@@ -55,7 +56,7 @@
       var main = cleanImg(p.img);
       var products = list(p.products, 6).map(cleanCard).filter(Boolean);
       if (!main || !products.length) return;
-      posts.push({ id: p.id, acct: p.acct, url: p.url, type: p.type, img: main,
+      posts.push({ id: p.id, acct: p.acct, url: p.url, type: p.type, img: main, video: str(p.video, OK.imgKey),
         imgs: list(p.imgs, 6).map(cleanImg).filter(Boolean),
         cap: txt(p.cap, 200), products: products, match: p.match === 'color' ? 'color' : 'series' });
     });
@@ -71,13 +72,19 @@
   function push(o) { try { window.dataLayer = window.dataLayer || []; window.dataLayer.push(o); } catch (e) {} }
 
   // 版面設定(管理畫面存的,build_ugc.py 放進每頁資料的 cfg);每一項只收清單裡的值,其他一律用預設
-  var DEF = { pos: 'above_related', layout: 'grid', cols: 4, rows: 2, size: 'M', max: 12, media: 'all', title: '穿搭分享' };
+  var DEF = { pos: 'above_related', layout: 'grid', cols: 4, rows: 2, size: 'M', max: 12, media: 'all', locked: 'hide',
+    ratio: '4:5', gap: 12, radius: 8, prod: 'show', mlayout: 'row', mcols: 2, mrows: 2, title: '穿搭分享' };
   var ALLOW = {
     pos: ['above_related', 'before_info', 'after_description', 'buybox'],   // 您可能喜歡上方/商品描述上方/商品描述之後/加入購物車下方
     layout: ['grid', 'row'],                                                // 桌機:格子(看更多)/一排橫滑
     cols: [3, 4, 5], rows: [1, 2, 3], size: ['S', 'M', 'L'], max: [4, 6, 8, 12],
-    media: ['all', 'image', 'video']                                        // 全部/只放圖片/只放影片
+    media: ['all', 'image', 'video'],                                       // 全部/只放圖片/只放影片
+    locked: ['hide', 'cover'],                                              // 官網播不了的影片(版權配樂):不放/放封面(點開去 IG 播)
+    ratio: ['4:5', '1:1', '9:16'], gap: [4, 8, 12, 16, 24], radius: [0, 4, 8, 16],   // 格子形狀、間距 px、圓角 px
+    prod: ['show', 'hide'],                                                 // 格子下方顯示搭配商品/只顯示照片
+    mlayout: ['row', 'grid'], mcols: [2, 3], mrows: [1, 2, 3]               // 手機:一排橫滑/格子、每排幾格、格子先顯示幾排
   };
+  var RATIO = { '4:5': '4/5', '1:1': '1/1', '9:16': '9/16' };
   function cleanCfg(c) {
     var o = {};
     c = c && typeof c === 'object' ? c : {};
@@ -85,22 +92,25 @@
     o.title = txt(c.title, 200).trim().slice(0, 20) || DEF.title;   // 跟 wall_settings.py 一樣:先去頭尾空白再取 20 字
     return o;
   }
-  var SIZE = { S: { w: 760, m: 34 }, M: { w: 1000, m: 42 }, L: { w: 1200, m: 62 } };   // 桌機最大寬度 px、手機每格占螢幕 %
+  var SIZE = { S: { w: 760 }, M: { w: 1000 }, L: { w: 1200 } };   // 桌機最大寬度 px(手機另外用 mlayout/mcols/mrows)
+  var MROW_W = { 2: 42, 3: 30 };                                  // 手機一排橫滑:每格占螢幕 %(2 格 ≈ 看到 2.3 格、3 格 ≈ 3.3 格)
 
   function injectCSS(cfg) {
-    var sz = SIZE[cfg.size], row = cfg.layout === 'row';
+    var sz = SIZE[cfg.size], row = cfg.layout === 'row', gap = cfg.gap;
     var css = '.mc-ugc{max-width:' + sz.w + 'px;margin:24px auto 40px;padding:0 0 4px}' +
       // 放在右欄購買區(桌機約 430px 寬)時跟著欄寬、固定 2 欄
       '.ProductDetail-product-info .mc-ugc{max-width:100%;margin:20px 0}' +
-      '.ProductDetail-product-info .mc-ugc-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-columns:calc((100% - 12px) / 2)}' +
+      '.ProductDetail-product-info .mc-ugc-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-columns:calc((100% - ' + gap + 'px) / 2)}' +
       '.mc-ugc-head{font-size:12px;letter-spacing:.14em;color:#888;text-align:center;margin:0 0 14px}' +
       // minmax(0,…) 與 min-width:0:品名不換行,不加的話長品名會把那一格撐寬(手機橫滑每格大小不一)
       (row
-        ? '.mc-ugc-grid{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - ' + (cfg.cols - 1) * 12 + 'px) / ' + cfg.cols + ');gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin}.mc-ugc-tile{scroll-snap-align:start}'
-        : '.mc-ugc-grid{display:grid;grid-template-columns:repeat(' + cfg.cols + ',minmax(0,1fr));gap:12px}') +
+        ? '.mc-ugc-grid{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - ' + (cfg.cols - 1) * gap + 'px) / ' + cfg.cols + ');gap:' + gap + 'px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin}.mc-ugc-tile{scroll-snap-align:start}'
+        : '.mc-ugc-grid{display:grid;grid-template-columns:repeat(' + cfg.cols + ',minmax(0,1fr));gap:' + gap + 'px}') +
       '.mc-ugc-tile{display:block;min-width:0;text-align:left;cursor:pointer;background:none;border:0;padding:0;font:inherit;color:#222}' +
       '.mc-ugc-tile:focus{outline:none}.mc-ugc-tile:focus-visible .mc-ugc-ph{outline:2px solid #ce715e;outline-offset:2px}' +
-      '.mc-ugc-ph{position:relative;display:block;aspect-ratio:4/5;background:#f3f3f3;border-radius:8px;overflow:hidden}' +
+      '.mc-ugc-ph{position:relative;display:block;aspect-ratio:' + RATIO[cfg.ratio] + ';background:#f3f3f3;border-radius:' + cfg.radius + 'px;overflow:hidden}' +
+      // 只顯示照片:選擇器要比後面的 .mc-ugc-prod{display:flex} 強,不然會被蓋掉
+      (cfg.prod === 'hide' ? '.mc-ugc .mc-ugc-prod{display:none}' : '') +
       '.mc-ugc-ph img{width:100%;height:100%;object-fit:cover;display:block}' +
       '.mc-ugc-acct{position:absolute;left:8px;bottom:8px;font-size:11px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6)}' +
       '.mc-ugc-play{position:absolute;right:8px;top:8px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.45)}' +
@@ -114,7 +124,7 @@
       '.mc-ugc-modal{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center}' +
       '.mc-ugc-box{background:#fff;width:min(880px,94vw);max-height:90vh;overflow:auto;border-radius:10px;display:flex;position:relative}' +
       '.mc-ugc-box-ph{flex:1 1 55%;background:#111;display:flex;align-items:center;justify-content:center;position:relative}' +
-      '.mc-ugc-box-ph img{width:100%;max-height:90vh;object-fit:contain;display:block}' +
+      '.mc-ugc-box-ph img,.mc-ugc-box-ph video{width:100%;max-height:90vh;object-fit:contain;display:block;background:#111}' +
       '.mc-ugc-nav{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;border:0;background:rgba(255,255,255,.85);font-size:18px;cursor:pointer}' +
       '.mc-ugc-side{flex:1 1 45%;padding:20px 18px;font-size:14px;line-height:1.55;color:#333}' +
       '.mc-ugc-side-acct{font-weight:600;margin:0 0 4px}' +
@@ -131,13 +141,15 @@
       '.mc-ugc-x{position:absolute;right:10px;top:8px;border:0;background:none;font-size:26px;line-height:1;color:#888;cursor:pointer;z-index:2}' +
       '@media (max-width:767px){' +
       '.mc-ugc{margin:20px 0 32px}' +
-      '.mc-ugc-grid{display:flex;overflow-x:auto;gap:10px;padding:0 15px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}' +
-      '.mc-ugc-grid::-webkit-scrollbar{display:none}' +
-      '.mc-ugc-tile{flex:0 0 ' + sz.m + '%;scroll-snap-align:start}' +
-      '.mc-ugc-more{display:none}' +
+      (cfg.mlayout === 'row'
+        ? '.mc-ugc-grid{display:flex;overflow-x:auto;gap:' + Math.min(gap, 12) + 'px;padding:0 15px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}' +
+          '.mc-ugc-grid::-webkit-scrollbar{display:none}' +
+          '.mc-ugc-tile{flex:0 0 ' + MROW_W[cfg.mcols] + '%;scroll-snap-align:start}' +
+          '.mc-ugc-more{display:none}'
+        : '.mc-ugc-grid,.ProductDetail-product-info .mc-ugc-grid{display:grid;grid-template-columns:repeat(' + cfg.mcols + ',minmax(0,1fr));gap:' + Math.min(gap, 12) + 'px;padding:0 15px}') +
       '.mc-ugc-box{flex-direction:column;width:100vw;max-height:100vh;height:100%;border-radius:0}' +
       // 手機:大圖矮一點、貼文文字只留 3 行,「貼文中的商品」才會在第一個畫面裡
-      '.mc-ugc-box-ph{flex:none}.mc-ugc-box-ph img{max-height:50vh}' +
+      '.mc-ugc-box-ph{flex:none}.mc-ugc-box-ph img,.mc-ugc-box-ph video{max-height:50vh}' +
       '.mc-ugc-side{padding:14px 16px}' +
       '.mc-ugc-side-cap{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:10px}' +
       '}';
@@ -178,21 +190,26 @@
         '<span class="mc-ugc-sold">' + esc(sub) + '</span><span><b>' + esc(price(c.price)) + '</b></span></span>' +
         '<span class="mc-ugc-item-go">看商品 ›</span></a>';
     }).join('');
+    // 影片(10/31 宏鈞:點了要直接看,不要再去 IG):有存在圖片 repo 的就直接在視窗裡播,先靜音自動播放、可開聲音
+    var isVid = p.type === 'VIDEO' && !!p.video;
     var m = document.createElement('div');
     m.className = 'mc-ugc-modal';
     m.innerHTML = '<div class="mc-ugc-box" role="dialog" aria-modal="true" aria-label="@' + esc(p.acct) + ' 的 IG 貼文"><button type="button" class="mc-ugc-x" aria-label="關閉">×</button>' +
-      '<div class="mc-ugc-box-ph"><img alt="" src="' + esc(pics[0]) + '">' +
-      (pics.length > 1 ? '<button type="button" class="mc-ugc-nav" data-d="-1" aria-label="上一張" style="left:8px">‹</button><button type="button" class="mc-ugc-nav" data-d="1" aria-label="下一張" style="right:8px">›</button>' : '') +
+      '<div class="mc-ugc-box-ph">' + (isVid
+        ? '<video class="mc-ugc-vid" src="' + esc(CFG.vid + p.video + '.mp4') + '" poster="' + esc(pics[0]) + '" autoplay muted loop playsinline controls preload="auto"></video>'
+        : '<img alt="" src="' + esc(pics[0]) + '">' +
+          (pics.length > 1 ? '<button type="button" class="mc-ugc-nav" data-d="-1" aria-label="上一張" style="left:8px">‹</button><button type="button" class="mc-ugc-nav" data-d="1" aria-label="下一張" style="right:8px">›</button>' : '')) +
       '</div><div class="mc-ugc-side"><p class="mc-ugc-side-acct">@' + esc(p.acct) + '</p>' +
       (p.cap ? '<p class="mc-ugc-side-cap">' + esc(p.cap) + '</p>' : '') +
       '<p class="mc-ugc-side-h">貼文中的商品</p>' + items +
-      '<a class="mc-ugc-ig" href="' + esc(p.url) + '" target="_blank" rel="noopener">' + (p.type === 'VIDEO' ? '這是影片,到 Instagram 播放 ›' : '在 Instagram 看這則 ›') + '</a></div></div>';
-    // 大圖載不到:圖留著(左右切換還要用)、只藏起來,旁邊顯示文字;換到好的圖再出現
-    var big = m.querySelector('.mc-ugc-box-ph img');
-    var note = Object.assign(document.createElement('p'), { textContent: '圖片暫時無法顯示,請到 Instagram 看這則', style: 'display:none;color:#ccc;font-size:13px;padding:40px 20px;text-align:center' });
-    big.parentNode.insertBefore(note, big);
-    big.onerror = function () { big.style.display = 'none'; note.style.display = 'block'; };
-    big.onload = function () { big.style.display = ''; note.style.display = 'none'; };
+      '<a class="mc-ugc-ig" href="' + esc(p.url) + '" target="_blank" rel="noopener">' + (p.type === 'VIDEO' && !isVid ? '這是影片,到 Instagram 播放 ›' : '在 Instagram 看這則 ›') + '</a></div></div>';
+    // 大圖/影片載不到:藏起來、顯示文字;圖片換到好的那張再出現(左右切換還要用同一個 img)
+    var big = m.querySelector('.mc-ugc-box-ph img'), vEl = m.querySelector('.mc-ugc-vid');
+    var note = Object.assign(document.createElement('p'), { textContent: (isVid ? '影片' : '圖片') + '暫時無法顯示,請到 Instagram 看這則', style: 'display:none;color:#ccc;font-size:13px;padding:40px 20px;text-align:center' });
+    var media = big || vEl;
+    media.parentNode.insertBefore(note, media);
+    media.addEventListener('error', function () { media.style.display = 'none'; note.style.display = 'block'; });
+    if (big) big.onload = function () { big.style.display = ''; note.style.display = 'none'; };
     // 鎖背景捲動:iOS Safari 只鎖 overflow 擋不住,要把 body 固定住、關窗再捲回原位
     var y = window.pageYOffset, bs = document.body.style, prev = [bs.position, bs.top, bs.width];
     bs.position = 'fixed'; bs.top = -y + 'px'; bs.width = '100%';
@@ -218,7 +235,7 @@
     document.addEventListener('keydown', onKey);
     document.body.appendChild(m);
     m.querySelector('.mc-ugc-x').focus();
-    push({ event: 'mc_ugc_open', ugc_from: pid(), ugc_post: p.id, ugc_acct: p.acct, ugc_match: p.match });
+    push({ event: 'mc_ugc_open', ugc_from: pid(), ugc_post: p.id, ugc_acct: p.acct, ugc_match: p.match, ugc_video: isVid ? 1 : 0 });
   }
 
   // 位置(10/31 看過商品頁:桌機右欄是 .ProductDetail-product-info,下面依序是商品描述、Tagnology、您可能喜歡);
@@ -246,6 +263,7 @@
     if (!a) return false;
     var posts = data.posts.filter(function (p) {
       if (!p.img || !p.products || !p.products.length) return false;
+      if (p.type === 'VIDEO' && !p.video && cfg.locked === 'hide') return false;   // 點了要直接看,播不了的影片不放
       if (cfg.media === 'video') return p.type === 'VIDEO';
       if (cfg.media === 'image') return p.type !== 'VIDEO';
       return true;
@@ -257,14 +275,15 @@
     // 手機與「一排橫滑」全部放;桌機格子先放「欄數×排數」,其餘按「看更多」
     var mobile = window.matchMedia && window.matchMedia('(max-width:767px)').matches;
     var cols = a.how === 'append' ? 2 : cfg.cols;
-    var shown = mobile || cfg.layout === 'row' ? posts.length : Math.min(posts.length, cols * cfg.rows);
+    var shown = mobile ? (cfg.mlayout === 'row' ? posts.length : Math.min(posts.length, cfg.mcols * cfg.mrows))
+      : cfg.layout === 'row' ? posts.length : Math.min(posts.length, cols * cfg.rows);
     box.innerHTML = '<p class="mc-ugc-head">' + esc(cfg.title) + '</p><div class="mc-ugc-grid">' +
       posts.slice(0, shown).map(tileHTML).join('') + '</div>' +
       (posts.length > shown ? '<button type="button" class="mc-ugc-more">看更多</button>' : '');
     // 桌機貼文比一排的格數少:格子維持原本寬度、置中(不然只有 1 則時會撐滿或靠左,像壞掉)
     if (!mobile && posts.length < cols) {
       var g = box.querySelector('.mc-ugc-grid');
-      var w = 'calc((100% - ' + (cols - 1) * 12 + 'px) / ' + cols + ')';
+      var w = 'calc((100% - ' + (cols - 1) * cfg.gap + 'px) / ' + cols + ')';
       if (cfg.layout === 'row') g.style.gridAutoColumns = w;
       else g.style.gridTemplateColumns = 'repeat(' + posts.length + ',' + w + ')';
       g.style.justifyContent = 'center';
