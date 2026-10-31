@@ -47,7 +47,7 @@
       '.mc-ugc-prod span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
       '.mc-ugc-prod b{font-weight:600}' +
       '.mc-ugc-more{display:block;margin:16px auto 0;background:none;border:1px solid #ccc;border-radius:4px;padding:8px 22px;font:inherit;font-size:13px;color:#555;cursor:pointer}' +
-      '.mc-ugc-modal{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center}' +
+      '.mc-ugc-modal{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center}' +
       '.mc-ugc-box{background:#fff;width:min(880px,94vw);max-height:90vh;overflow:auto;border-radius:10px;display:flex;position:relative}' +
       '.mc-ugc-box-ph{flex:1 1 55%;background:#111;display:flex;align-items:center;justify-content:center;position:relative}' +
       '.mc-ugc-box-ph img{width:100%;max-height:90vh;object-fit:contain;display:block}' +
@@ -72,7 +72,10 @@
       '.mc-ugc-tile{flex:0 0 42%;scroll-snap-align:start}' +
       '.mc-ugc-more{display:none}' +
       '.mc-ugc-box{flex-direction:column;width:100vw;max-height:100vh;height:100%;border-radius:0}' +
-      '.mc-ugc-box-ph{flex:none}.mc-ugc-box-ph img{max-height:60vh}' +
+      // 手機:大圖矮一點、貼文文字只留 3 行,「貼文中的商品」才會在第一個畫面裡
+      '.mc-ugc-box-ph{flex:none}.mc-ugc-box-ph img{max-height:50vh}' +
+      '.mc-ugc-side{padding:14px 16px}' +
+      '.mc-ugc-side-cap{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:10px}' +
       '}';
     var st = document.createElement('style');
     st.textContent = css;
