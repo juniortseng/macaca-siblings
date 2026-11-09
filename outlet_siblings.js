@@ -218,6 +218,8 @@
       '.mc-sib-self{cursor:default}' +
       '.mc-sib-row.product-list-variant-selector-container{margin-top:6px}' +
       '.mc-sib-row .product-list-variant-selector-item{display:inline-block}' +
+      // OUTLET:封面是直式模特照,60x60 會縮成 38x60 留白 → 置中裁切填滿,看得到衣服的顏色
+      '.mc-sib-row .product-list-variant-selector-image img{width:100%;height:100%;object-fit:cover;object-position:center 35%}' +
       '.mc-sib-row.Variation-container{margin:6px 0 10px}' +
       '.mc-sib-noopt{margin:4px 0 12px}.mc-sib-noopt .mc-sib-label{font-size:13px;color:#999}' +
       // 舊季商品頁沒有圖片選項的 CSS,自己補(尺寸照新季原生:38px 外框、30px 圓圖)
