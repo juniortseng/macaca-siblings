@@ -25,8 +25,10 @@
 
   // 10/20:SHOPLINE 對 Safari 15.6 以下給 jpg(mainConfig.webpSupported 不是 true),照它切換,否則舊 Mac 色票是空白
   var EXT = (window.mainConfig && window.mainConfig.webpSupported !== true) ? '.jpg' : '.webp?source_format=jpg';
-  function thumb(mid, s) { var m = s.swatch || (!s.hex && s.cover); return m ? 'https://shoplineimg.com/' + mid + '/' + m + '/60x60' + EXT : ''; }
-  function cover(mid, s) { return s.cover ? 'https://shoplineimg.com/' + mid + '/' + s.cover + '/750x' + EXT : ''; }
+  // OUTLET 11/9:PNG 上傳的封面,CDN 的 .jpg 會 403 → 用 .png(builder 從原檔副檔名判,寫在 png 欄位)
+  function ext(s) { return s.png ? '.png' : EXT; }
+  function thumb(mid, s) { var m = s.swatch || (!s.hex && s.cover); return m ? 'https://shoplineimg.com/' + mid + '/' + m + '/60x60' + ext(s) : ''; }
+  function cover(mid, s) { return s.cover ? 'https://shoplineimg.com/' + mid + '/' + s.cover + '/750x' + ext(s) : ''; }
   function hasThumb(s) { return !!(s.swatch || s.hex || s.cover); }
   function useDot(s) { return !s.swatch && !!s.hex; }   // 沒有選項圖片、但有核准色碼 → 純色圓點
 
@@ -44,7 +46,7 @@
     var sw = opt(s.swatch, RE_ID), cv = opt(s.cover, RE_ID), hx = opt(s.hex, RE_HEX);
     if (typeof s.id !== 'string' || !RE_ID.test(s.id) || typeof s.url !== 'string' || !RE_URL.test(s.url)) return null;
     if (typeof s.color !== 'string' || s.color.length > 40 || RE_BADTXT.test(s.color) || sw === null || cv === null || hx === null) return null;
-    return { id: s.id, url: s.url, color: s.color, swatch: sw, cover: cv, hex: hx, soldout: s.soldout === true };
+    return { id: s.id, url: s.url, color: s.color, swatch: sw, cover: cv, hex: hx, png: s.png === true, soldout: s.soldout === true };
   }
   function clean(raw) {
     if (!raw || raw.enabled !== true || typeof raw.mid !== 'string' || !RE_ID.test(raw.mid)) return null;
