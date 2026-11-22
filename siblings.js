@@ -1,4 +1,5 @@
-/* MACACA 同款不同色色票 v3.2.2(2026-11-22:色票 0.4 秒淡入;自建的色票列從 0 滑開到原本高度,下方內容不再一下子被推開;有原生色票的商品頁先等原生出現,不先自建)
+/* MACACA 同款不同色色票 v3.2.3(2026-11-22:舊季商品頁文字按鈕只有自己一色時藏起來,只留色票列,跟新季同樣子)
+ * v3.2.2(2026-11-22:色票 0.4 秒淡入;自建的色票列從 0 滑開到原本高度,下方內容不再一下子被推開;有原生色票的商品頁先等原生出現,不先自建)
  * v3.2.1(2026-11-22:原生色票比我們晚畫出來時,拿掉誤建的那列、改接在原生色票後面,修色票重複)
  * v3.2(2026-10-20:修 Mac 上商品頁色票列重複出現;舊版 Safari 改用 jpg;分類頁滑過色票時主圖與滑入圖一起換)
  * v3.1(2026-10-19:沒有規格的配件頁也建一列「顏色 : X」+ 色票)
@@ -119,6 +120,14 @@
     a.innerHTML = '<div class="Variation-border' + (isSelf ? ' selected' : '') + '"></div><div class="Variation-thumb' + (useDot(s) ? ' mc-sib-dot' : '') + '" style="' + bg + '"></div>';
     return a;
   }
+  // 11/22:舊季文字按鈕只有自己一色 → 藏起來,色票列當作顏色選擇(跟新季一樣);高度差不多(40→35),直接換不滑
+  function unifyOld(root) {
+    var box = root.querySelector('.select-box'), row = root.querySelector('.mc-sib-row');
+    if (!box || !row || box.classList.contains('mc-sib-hidebox')) return false;
+    if (box.querySelectorAll('.variation-label').length !== 1 || !row.querySelector('.mc-sib-self')) return false;
+    box.classList.add('mc-sib-hidebox'); row.classList.add('mc-sib-unified');
+    return true;
+  }
   function decoratePDP(data) {
     var pid = (window.mainConfig && window.mainConfig.trackerEventData && window.mainConfig.trackerEventData['Product ID']) || '';
     var k = data.by_id[pid];
@@ -134,7 +143,9 @@
     if (root.hasAttribute(CFG.mark) && root.querySelector('.Variation-container:not(.mc-sib-row) .Variation-wrap:not(.mc-sib-item)')) {
       var late = root.querySelectorAll('.mc-sib-row');
       if (late.length) { for (var z = 0; z < late.length; z++) late[z].parentNode.removeChild(late[z]); root.removeAttribute(CFG.mark); }
+      var hid = root.querySelectorAll('.mc-sib-hidebox'); for (var hz = 0; hz < hid.length; hz++) hid[hz].classList.remove('mc-sib-hidebox');
     }
+    if (root.hasAttribute(CFG.mark)) unifyOld(root);
     if (root.hasAttribute(CFG.mark) || root.closest('.quick-cart')) return;
     var sibs = data.styles[k] || [];
     var container = root.querySelector('.Variation-container');
@@ -148,12 +159,13 @@
       for (var q = 0; q < sibs.length; q++) if (sibs[q].id === pid && sibs[q].swatch && !pageSettled) return;
       var box = root.querySelector('.select-box');
       if (!box) return;
+      if (!pageSettled && !box.querySelector('.variation-label')) return;
       root.setAttribute(CFG.mark, '1');
       var row = document.createElement('div');
       row.className = 'Variation-container mc-sib-row';
       for (var m = 0; m < sibs.length; m++) if (hasThumb(sibs[m])) row.appendChild(pdpItem(data.mid, sibs[m], sibs[m].id === pid));
       box.parentNode.insertBefore(row, box.nextSibling);
-      slideIn(row);
+      if (!unifyOld(root)) slideIn(row);
     }
     // 宏鈞 10/15 最終(GTM 版本 43):「➤ 更多顏色選擇」連結保留,不隱藏
   }
@@ -219,7 +231,9 @@
       '.mc-sib-soldout:after{content:"";position:absolute;left:18%;right:18%;top:50%;height:1px;background:#999;transform:rotate(-45deg)}' +
       // 11/22:色票是頁面載入後才補上,淡入取代突然出現(只淡每顆色票;不寫 to/fill,結束回到原本的 opacity)
       '@keyframes mcSibIn{from{opacity:0}}.mc-sib-item,.mc-sib-noopt .mc-sib-label{animation:mcSibIn .4s ease-out}' +
-      '@media (prefers-reduced-motion:reduce){.mc-sib-item,.mc-sib-noopt .mc-sib-label{animation:none}}';
+      '@media (prefers-reduced-motion:reduce){.mc-sib-item,.mc-sib-noopt .mc-sib-label{animation:none}}' +
+      // 11/22:舊季統一成新季樣子:藏只有一個選項的文字按鈕,色票列上下距離照新季原生色票(標題到圓點 0、圓點到「尺寸」15px,11/22 實測)
+      '.mc-sib-hidebox{display:none!important}.mc-sib-row.mc-sib-unified.Variation-container{margin:0 0 15px}';
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   }
 
