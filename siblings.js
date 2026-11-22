@@ -1,4 +1,6 @@
-/* MACACA 同款不同色色票 v3.2(2026-10-20:修 Mac 上商品頁色票列重複出現;舊版 Safari 改用 jpg;分類頁滑過色票時主圖與滑入圖一起換)
+/* MACACA 同款不同色色票 v3.2.2(2026-11-22:色票 0.4 秒淡入;自建的色票列從 0 滑開到原本高度,下方內容不再一下子被推開;有原生色票的商品頁先等原生出現,不先自建)
+ * v3.2.1(2026-11-22:原生色票比我們晚畫出來時,拿掉誤建的那列、改接在原生色票後面,修色票重複)
+ * v3.2(2026-10-20:修 Mac 上商品頁色票列重複出現;舊版 Safari 改用 jpg;分類頁滑過色票時主圖與滑入圖一起換)
  * v3.1(2026-10-19:沒有規格的配件頁也建一列「顏色 : X」+ 色票)
  * 作用:商品分類頁/列表的卡片、商品頁的「顏色」列,補上同款其他顏色的色票;點了跳到那個顏色的商品頁。
  * 資料:siblings.json(每晚由 build_style_siblings.py 產生,放在 CFG.url;enabled=false 為總開關)。
@@ -53,6 +55,7 @@
       appendSiblings(data, k, pid, scroll, sel.closest('.product-item'), false);
     }
     // 舊季:卡片沒有色票列,自己建
+    var slid = [];
     var tiles = document.querySelectorAll('.product-item product-item[product-id]');
     for (var j = 0; j < tiles.length; j++) {
       var pi = tiles[j], wrap = pi.closest('.product-item');
@@ -67,7 +70,9 @@
       row.innerHTML = '<div class="product-list-variant-selector-wrapper"><div class="product-list-variant-selector-list" style="max-width:100%"><div class="product-list-variant-selector-scrollable"></div></div></div>';
       anchor.parentNode.insertBefore(row, anchor.nextSibling);
       appendSiblings(data, k2, pid2, row.querySelector('.product-list-variant-selector-scrollable'), wrap, true);
+      slid.push(row);
     }
+    slideInMany(slid);
   }
   function appendSiblings(data, k, pid, scroll, tile, includeSelf) {
     var mains = tile ? findMainImgs(tile) : [];
@@ -125,6 +130,11 @@
     for (var x = 0; x < stray.length; x++) stray[x].parentNode.removeChild(stray[x]);
     var actsMarked = document.querySelectorAll('.product-detail-actions[' + CFG.mark + ']');
     for (var y = 0; y < actsMarked.length; y++) actsMarked[y].removeAttribute(CFG.mark);
+    // 11/22:原生色票比我們晚畫出來(宏鈞 iPhone 無痕實際發生)→ 先前誤判成舊季、自建了一整列(含自己這色)→ 拿掉,改接在原生色票後面
+    if (root.hasAttribute(CFG.mark) && root.querySelector('.Variation-container:not(.mc-sib-row) .Variation-wrap:not(.mc-sib-item)')) {
+      var late = root.querySelectorAll('.mc-sib-row');
+      if (late.length) { for (var z = 0; z < late.length; z++) late[z].parentNode.removeChild(late[z]); root.removeAttribute(CFG.mark); }
+    }
     if (root.hasAttribute(CFG.mark) || root.closest('.quick-cart')) return;
     var sibs = data.styles[k] || [];
     var container = root.querySelector('.Variation-container');
@@ -134,6 +144,8 @@
       for (var j = 0; j < sibs.length; j++) if (sibs[j].id !== pid && hasThumb(sibs[j])) container.appendChild(pdpItem(data.mid, sibs[j], false));
     } else {
       // 舊季:文字標籤,自己在下面建一列(含自己這色,打勾)
+      // 11/22:自己這色在 siblings.json 有選項圖(swatch)= 這頁應該有原生色票,只是還沒畫出來 → 頁面穩定前先等,不先自建再拆
+      for (var q = 0; q < sibs.length; q++) if (sibs[q].id === pid && sibs[q].swatch && !pageSettled) return;
       var box = root.querySelector('.select-box');
       if (!box) return;
       root.setAttribute(CFG.mark, '1');
@@ -141,6 +153,7 @@
       row.className = 'Variation-container mc-sib-row';
       for (var m = 0; m < sibs.length; m++) if (hasThumb(sibs[m])) row.appendChild(pdpItem(data.mid, sibs[m], sibs[m].id === pid));
       box.parentNode.insertBefore(row, box.nextSibling);
+      slideIn(row);
     }
     // 宏鈞 10/15 最終(GTM 版本 43):「➤ 更多顏色選擇」連結保留,不隱藏
   }
@@ -163,7 +176,28 @@
     wrap.appendChild(label); wrap.appendChild(row);
     var anchor = acts.querySelector('.product-variation-dropdown') || acts.querySelector('.quantity');
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(wrap, anchor); else acts.insertBefore(wrap, acts.firstChild);
+    slideIn(wrap);
   }
+
+  // 11/22:自建的色票列插進去會把下方內容一下子推開 → 量好高度,從 0 滑開到原本高度(含上下外距)
+  function slideInMany(els) {
+    if (!els.length || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    var todo = [];
+    for (var i = 0; i < els.length; i++) {
+      var h = els[i].offsetHeight; if (!h) continue;
+      var cs = getComputedStyle(els[i]); todo.push([els[i], h, cs.marginTop, cs.marginBottom]);
+    }
+    for (var a = 0; a < todo.length; a++) { var st = todo[a][0].style; st.overflow = 'hidden'; st.height = '0px'; st.marginTop = '0px'; st.marginBottom = '0px'; }
+    if (todo.length) void todo[0][0].offsetHeight;
+    for (var b = 0; b < todo.length; b++) {
+      var t = todo[b], s2 = t[0].style;
+      s2.transition = 'height .3s ease-out, margin .3s ease-out'; s2.height = t[1] + 'px'; s2.marginTop = t[2]; s2.marginBottom = t[3];
+    }
+    setTimeout(function () {
+      for (var c = 0; c < todo.length; c++) { var s3 = todo[c][0].style; s3.transition = ''; s3.height = ''; s3.overflow = ''; s3.marginTop = ''; s3.marginBottom = ''; }
+    }, 380);
+  }
+  function slideIn(el) { if (el) slideInMany([el]); }
 
   function injectCSS() {
     var css = '.mc-sib-item{display:inline-block;cursor:pointer}' +
@@ -182,7 +216,10 @@
       '.mc-sib-row .Variation-border.selected{border-color:#333}' +
       '.mc-sib-soldout .product-list-variant-selector-image img,.mc-sib-soldout .Variation-thumb{opacity:.35}' +
       '.mc-sib-soldout{position:relative}' +
-      '.mc-sib-soldout:after{content:"";position:absolute;left:18%;right:18%;top:50%;height:1px;background:#999;transform:rotate(-45deg)}';
+      '.mc-sib-soldout:after{content:"";position:absolute;left:18%;right:18%;top:50%;height:1px;background:#999;transform:rotate(-45deg)}' +
+      // 11/22:色票是頁面載入後才補上,淡入取代突然出現(只淡每顆色票;不寫 to/fill,結束回到原本的 opacity)
+      '@keyframes mcSibIn{from{opacity:0}}.mc-sib-item,.mc-sib-noopt .mc-sib-label{animation:mcSibIn .4s ease-out}' +
+      '@media (prefers-reduced-motion:reduce){.mc-sib-item,.mc-sib-noopt .mc-sib-label{animation:none}}';
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   }
 
