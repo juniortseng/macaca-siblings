@@ -172,7 +172,7 @@
 
   function run(data) {
     if (!data || data.enabled !== true || !data.pairs) return;
-    if (!/^\/products\//.test(location.pathname)) return;
+    if (!/^\/(?:[a-z]{2}(?:-[a-z]+)?\/)?products\//.test(location.pathname)) return;  // 11/23 也收 /zh-hant/ /en/ /ja/ 開頭
     injectCSS();
     if (place(data)) return;
     var mo = new MutationObserver(function () { if (place(data)) mo.disconnect(); });
