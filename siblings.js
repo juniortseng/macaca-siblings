@@ -1,4 +1,5 @@
-/* MACACA 同款不同色色票 v3.2.3(2026-11-22:舊季商品頁文字按鈕只有自己一色時藏起來,只留色票列,跟新季同樣子)
+/* MACACA 同款不同色色票 v3.2.4(2026-11-23:單色款商品頁也把文字按鈕換成一顆色塊;列表頁、沒有規格的頁面不動)
+ * v3.2.3(2026-11-22:舊季商品頁文字按鈕只有自己一色時藏起來,只留色票列,跟新季同樣子)
  * v3.2.2(2026-11-22:色票 0.4 秒淡入;自建的色票列從 0 滑開到原本高度,下方內容不再一下子被推開;有原生色票的商品頁先等原生出現,不先自建)
  * v3.2.1(2026-11-22:原生色票比我們晚畫出來時,拿掉誤建的那列、改接在原生色票後面,修色票重複)
  * v3.2(2026-10-20:修 Mac 上商品頁色票列重複出現;舊版 Safari 改用 jpg;分類頁滑過色票時主圖與滑入圖一起換)
@@ -27,6 +28,7 @@
   function thumb(mid, s) { var m = s.swatch || (!s.hex && s.cover); return m ? 'https://shoplineimg.com/' + mid + '/' + m + '/60x60' + EXT : ''; }
   function cover(mid, s) { return s.cover ? 'https://shoplineimg.com/' + mid + '/' + s.cover + '/750x' + EXT : ''; }
   function esc(s) { return String(s || '').replace(/"/g, '&quot;'); }
+  function multi(data, k) { return (data.styles[k] || []).length >= 2; }   // 11/23:資料裡多了單色款,列表頁只處理多色款
   function hasThumb(s) { return !!(s.swatch || s.hex || s.cover); }
   function useDot(s) { return !s.swatch && !!s.hex; }   // 沒有選項圖片、但有核准色碼 → 純色圓點
 
@@ -48,7 +50,7 @@
       var sel = sels[i];
       if (sel.hasAttribute(CFG.mark)) continue;
       var pid = sel.getAttribute('product_id'), k = data.by_id[pid];
-      if (!k) continue;
+      if (!k || !multi(data, k)) continue;
       var scroll = sel.querySelector('.product-list-variant-selector-scrollable');
       if (!scroll || !sel.querySelector('a.product-list-variant-selector-item')) continue;
       sel.setAttribute(CFG.mark, '1');
@@ -62,7 +64,7 @@
       var pi = tiles[j], wrap = pi.closest('.product-item');
       if (!wrap || wrap.hasAttribute(CFG.mark) || wrap.querySelector('product-list-variation-selector')) continue;
       var pid2 = pi.getAttribute('product-id'), k2 = data.by_id[pid2];
-      if (!k2) continue;
+      if (!k2 || !multi(data, k2)) continue;
       var anchor = wrap.querySelector('.quick-cart-price') || wrap.querySelector('.info-box-inner-wrapper .title');
       if (!anchor) continue;
       wrap.setAttribute(CFG.mark, '1');
@@ -160,6 +162,12 @@
       var box = root.querySelector('.select-box');
       if (!box) return;
       if (!pageSettled && !box.querySelector('.variation-label')) return;
+      if (!multi(data, k)) {
+        var lb = box.querySelectorAll('.variation-label'), me = null;
+        if (!lb.length) return;   // 標籤還沒畫出來 → 下一輪再判斷(Fable)
+        for (var w = 0; w < sibs.length; w++) if (sibs[w].id === pid) me = sibs[w];
+        if (!me || lb.length !== 1 || (lb[0].textContent || '').replace(/\s+/g, '') !== String(me.color || '').replace(/\s+/g, '')) { root.setAttribute(CFG.mark, '1'); return; }
+      }
       root.setAttribute(CFG.mark, '1');
       var row = document.createElement('div');
       row.className = 'Variation-container mc-sib-row';
@@ -173,7 +181,7 @@
   // 10/19:完全沒有規格的商品(配件,例 綿雲髮飾圈圈)頁面沒有選擇區 → 在購買區、數量上方自己建「顏色 : X」+ 色票列
   function decorateNoOption(data, k, pid) {
     // 10/20:等頁面完全載入 1.5 秒後才判斷「沒有規格」,避免規格選單還沒畫出來就誤判
-    if (!pageSettled) return;
+    if (!pageSettled || !multi(data, k)) return;
     var acts = document.querySelector('.ProductDetail-product-info .product-detail-actions');
     if (!acts || acts.hasAttribute(CFG.mark) || acts.closest('.quick-cart')) return;
     var sibs = data.styles[k] || [], self = null;
